@@ -1,6 +1,6 @@
 --[[
     ============================================
-    COMPLETE ROBLOX EXECUTOR SCRIPT - FIXED UI
+    KURBY HUB STYLE EXECUTOR - COMPLETE SCRIPT
     ============================================
 ]]
 
@@ -360,11 +360,44 @@ function Duplicator:duplicate_to_all(item_name, count)
 end
 
 -- ============================================
--- SECTION 4: HACK FEATURES
+-- SECTION 4: HACK FEATURES WITH TOGGLES
 -- ============================================
 
-local Hacks = {}
+local Hacks = {
+    active = {
+        fly = false,
+        speed = false,
+        esp = false,
+        infinite_jump = false,
+        god_mode = false,
+        no_clip = false,
+        auto_farm = false,
+        teleport = false,
+        wallhack = false,
+        aimbot = false,
+        silent_aim = false,
+        spin_bot = false,
+        anti_fall = false,
+        auto_click = false,
+        reach = false,
+        tp_others = false,
+        kill_aura = false,
+        fly_hack = false,
+        bunny_hop = false,
+        air_move = false,
+        directional_jump = false
+    },
+    fly_function = nil,
+    speed_function = nil,
+    esp_function = nil,
+    infinite_jump_function = nil,
+    god_mode_function = nil,
+    no_clip_function = nil,
+    auto_farm_function = nil,
+    wallhack_function = nil
+}
 
+-- FLY HACK
 function Hacks:fly(speed)
     speed = speed or 50
     local player = game.Players.LocalPlayer
@@ -374,10 +407,28 @@ function Hacks:fly(speed)
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
     
+    -- If already flying, disable
+    if self.active.fly then
+        self.active.fly = false
+        if self.fly_function then
+            self.fly_function()
+            self.fly_function = nil
+        end
+        return false
+    end
+    
+    self.active.fly = true
     hrp.Anchored = true
     
     local flying = true
     local uis = game:GetService("UserInputService")
+    
+    self.fly_function = function()
+        flying = false
+        hrp.Anchored = false
+        self.active.fly = false
+        self.fly_function = nil
+    end
     
     coroutine.wrap(function()
         while flying do
@@ -413,12 +464,10 @@ function Hacks:fly(speed)
         end
     end)()
     
-    return function() 
-        flying = false
-        hrp.Anchored = false
-    end
+    return self.fly_function
 end
 
+-- SPEED HACK
 function Hacks:speed(multiplier)
     multiplier = multiplier or 2
     local player = game.Players.LocalPlayer
@@ -428,16 +477,42 @@ function Hacks:speed(multiplier)
     local humanoid = char:FindFirstChild("Humanoid")
     if not humanoid then return false end
     
-    local original = humanoid.WalkSpeed
-    humanoid.WalkSpeed = original * multiplier
-    
-    return function()
-        humanoid.WalkSpeed = original
+    if self.active.speed then
+        self.active.speed = false
+        if self.speed_function then
+            self.speed_function()
+            self.speed_function = nil
+        end
+        return false
     end
+    
+    self.active.speed = true
+    local original = humanoid.WalkSpeed
+    
+    self.speed_function = function()
+        humanoid.WalkSpeed = original
+        self.active.speed = false
+        self.speed_function = nil
+    end
+    
+    humanoid.WalkSpeed = original * multiplier
+    return self.speed_function
 end
 
+-- ESP HACK
 function Hacks:esp(color)
     color = color or Color3.fromRGB(255, 0, 0)
+    
+    if self.active.esp then
+        self.active.esp = false
+        if self.esp_function then
+            self.esp_function()
+            self.esp_function = nil
+        end
+        return false
+    end
+    
+    self.active.esp = true
     local esp_objects = {}
     
     for _, player in ipairs(game.Players:GetPlayers()) do
@@ -456,13 +531,18 @@ function Hacks:esp(color)
         end
     end
     
-    return function()
+    self.esp_function = function()
         for _, obj in ipairs(esp_objects) do
             obj:Destroy()
         end
+        self.active.esp = false
+        self.esp_function = nil
     end
+    
+    return self.esp_function
 end
 
+-- INFINITE JUMP
 function Hacks:infinite_jump()
     local player = game.Players.LocalPlayer
     local char = player.Character
@@ -471,10 +551,27 @@ function Hacks:infinite_jump()
     local humanoid = char:FindFirstChild("Humanoid")
     if not humanoid then return false end
     
-    local jumping = true
+    if self.active.infinite_jump then
+        self.active.infinite_jump = false
+        if self.infinite_jump_function then
+            self.infinite_jump_function()
+            self.infinite_jump_function = nil
+        end
+        return false
+    end
+    
+    self.active.infinite_jump = true
     local original_jump = humanoid.JumpPower
     
     humanoid.JumpPower = 100
+    local jumping = true
+    
+    self.infinite_jump_function = function()
+        jumping = false
+        humanoid.JumpPower = original_jump
+        self.active.infinite_jump = false
+        self.infinite_jump_function = nil
+    end
     
     coroutine.wrap(function()
         while jumping do
@@ -486,12 +583,81 @@ function Hacks:infinite_jump()
         end
     end)()
     
-    return function()
-        jumping = false
-        humanoid.JumpPower = original_jump
-    end
+    return self.infinite_jump_function
 end
 
+-- GOD MODE
+function Hacks:god_mode()
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char then return false end
+    
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not humanoid then return false end
+    
+    if self.active.god_mode then
+        self.active.god_mode = false
+        if self.god_mode_function then
+            self.god_mode_function()
+            self.god_mode_function = nil
+        end
+        return false
+    end
+    
+    self.active.god_mode = true
+    local original_max = humanoid.MaxHealth
+    local original_health = humanoid.Health
+    
+    self.god_mode_function = function()
+        humanoid.MaxHealth = original_max
+        humanoid.Health = original_health
+        self.active.god_mode = false
+        self.god_mode_function = nil
+    end
+    
+    humanoid.MaxHealth = math.huge
+    humanoid.Health = math.huge
+    
+    return self.god_mode_function
+end
+
+-- NO CLIP
+function Hacks:no_clip()
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char then return false end
+    
+    if self.active.no_clip then
+        self.active.no_clip = false
+        if self.no_clip_function then
+            self.no_clip_function()
+            self.no_clip_function = nil
+        end
+        return false
+    end
+    
+    self.active.no_clip = true
+    
+    self.no_clip_function = function()
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+        self.active.no_clip = false
+        self.no_clip_function = nil
+    end
+    
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+    
+    return self.no_clip_function
+end
+
+-- TELEPORT
 function Hacks:teleport(position)
     local player = game.Players.LocalPlayer
     local char = player.Character
@@ -519,6 +685,7 @@ function Hacks:teleport_to_player(player_name)
     return self:teleport(hrp.Position + Vector3.new(0, 5, 0))
 end
 
+-- KILL ALL
 function Hacks:kill_all()
     local killed = {}
     
@@ -538,41 +705,199 @@ function Hacks:kill_all()
     return killed
 end
 
-function Hacks:god_mode()
-    local player = game.Players.LocalPlayer
-    local char = player.Character
-    if not char then return false end
+-- KILL AURA
+function Hacks:kill_aura(radius)
+    radius = radius or 20
     
-    local humanoid = char:FindFirstChild("Humanoid")
-    if not humanoid then return false end
+    if self.active.kill_aura then
+        self.active.kill_aura = false
+        return false
+    end
     
-    humanoid.MaxHealth = math.huge
-    humanoid.Health = math.huge
+    self.active.kill_aura = true
+    local running = true
+    
+    coroutine.wrap(function()
+        while running do
+            local player = game.Players.LocalPlayer
+            local char = player.Character
+            if char then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    for _, target in ipairs(game.Players:GetPlayers()) do
+                        if target ~= player then
+                            local target_char = target.Character
+                            if target_char then
+                                local target_hrp = target_char:FindFirstChild("HumanoidRootPart")
+                                if target_hrp and (target_hrp.Position - hrp.Position).Magnitude <= radius then
+                                    local humanoid = target_char:FindFirstChild("Humanoid")
+                                    if humanoid and humanoid.Health > 0 then
+                                        humanoid.Health = 0
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            task.wait(0.1)
+        end
+    end)()
+    
+    return function() running = false; self.active.kill_aura = false end
+end
+
+-- AUTO FARM
+function Hacks:auto_farm()
+    if self.active.auto_farm then
+        self.active.auto_farm = false
+        if self.auto_farm_function then
+            self.auto_farm_function()
+            self.auto_farm_function = nil
+        end
+        return false
+    end
+    
+    self.active.auto_farm = true
+    local running = true
+    
+    self.auto_farm_function = function()
+        running = false
+        self.active.auto_farm = false
+        self.auto_farm_function = nil
+    end
+    
+    coroutine.wrap(function()
+        local player = game.Players.LocalPlayer
+        while running do
+            -- Auto click
+            local uis = game:GetService("UserInputService")
+            uis:SetMouseButton1Down(true)
+            task.wait(0.1)
+            uis:SetMouseButton1Down(false)
+            
+            -- Collect nearby items
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("Tool") and not obj.Parent and obj:FindFirstChild("Handle") then
+                    obj.Parent = player.Character or player
+                    task.wait(0.05)
+                end
+            end
+            
+            task.wait(0.5)
+        end
+    end)()
+    
+    return self.auto_farm_function
+end
+
+-- WALLHACK
+function Hacks:wallhack()
+    if self.active.wallhack then
+        self.active.wallhack = false
+        return false
+    end
+    
+    self.active.wallhack = true
+    local changed = {}
+    
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if part:IsA("BasePart") and part.Transparency < 1 then
+            changed[part] = part.Transparency
+            part.Transparency = 0.3
+        end
+    end
     
     return function()
-        humanoid.MaxHealth = 100
-        humanoid.Health = 100
+        for part, transparency in pairs(changed) do
+            if part then
+                part.Transparency = transparency
+            end
+        end
+        self.active.wallhack = false
     end
 end
 
-function Hacks:no_clip()
-    local player = game.Players.LocalPlayer
-    local char = player.Character
-    if not char then return false end
-    
-    for _, part in ipairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = false
-        end
+-- AIMBOT
+function Hacks:aimbot()
+    if self.active.aimbot then
+        self.active.aimbot = false
+        return false
     end
     
-    return function()
-        for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
+    self.active.aimbot = true
+    local running = true
+    
+    coroutine.wrap(function()
+        while running do
+            local player = game.Players.LocalPlayer
+            local char = player.Character
+            if char then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local closest = nil
+                    local closest_dist = math.huge
+                    
+                    for _, target in ipairs(game.Players:GetPlayers()) do
+                        if target ~= player then
+                            local target_char = target.Character
+                            if target_char then
+                                local target_hrp = target_char:FindFirstChild("HumanoidRootPart")
+                                if target_hrp then
+                                    local dist = (target_hrp.Position - hrp.Position).Magnitude
+                                    if dist < closest_dist then
+                                        closest = target_hrp
+                                        closest_dist = dist
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    
+                    if closest then
+                        local cam = workspace.CurrentCamera
+                        if cam then
+                            local vector = (closest.Position - cam.CFrame.Position).Unit
+                            cam.CFrame = CFrame.new(cam.CFrame.Position, closest.Position)
+                        end
+                    end
+                end
             end
+            task.wait(0.05)
         end
+    end)()
+    
+    return function() running = false; self.active.aimbot = false end
+end
+
+-- BUNNY HOP
+function Hacks:bunny_hop()
+    if self.active.bunny_hop then
+        self.active.bunny_hop = false
+        return false
     end
+    
+    self.active.bunny_hop = true
+    local running = true
+    
+    coroutine.wrap(function()
+        local uis = game:GetService("UserInputService")
+        while running do
+            local player = game.Players.LocalPlayer
+            local char = player.Character
+            if char then
+                local humanoid = char:FindFirstChild("Humanoid")
+                if humanoid and uis:IsKeyDown(Enum.KeyCode.Space) then
+                    humanoid.Jump = true
+                    task.wait(0.05)
+                    humanoid.Jump = false
+                end
+            end
+            task.wait(0.01)
+        end
+    end)()
+    
+    return function() running = false; self.active.bunny_hop = false end
 end
 
 -- ============================================
@@ -646,44 +971,44 @@ function AntiDetection:rejoin()
 end
 
 -- ============================================
--- SECTION 6: GUI COMMAND SYSTEM - FIXED VERSION
+-- SECTION 6: KURBY HUB STYLE UI
 -- ============================================
 
 local CommandUI = {}
 
-function CommandUI:create_command_bar()
+function CommandUI:create_ui()
     local player = game.Players.LocalPlayer
     if not player then return end
     
-    -- Create main GUI
+    -- Main ScreenGui
     local screen = Instance.new("ScreenGui")
-    screen.Name = "ExecutorUI_v3"
+    screen.Name = "KurbyHub"
     screen.Parent = player.PlayerGui
     screen.ResetOnSpawn = false
     
-    -- Main container with visible background
+    -- ===== MAIN CONTAINER =====
     local main = Instance.new("Frame")
-    main.Size = UDim2.new(0, 600, 0, 700)
-    main.Position = UDim2.new(0.5, -300, 0.5, -350)
-    main.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
+    main.Size = UDim2.new(0, 420, 0, 600)
+    main.Position = UDim2.new(0.5, -210, 0.5, -300)
+    main.BackgroundColor3 = Color3.fromRGB(18, 18, 32)
     main.BackgroundTransparency = 0.05
     main.BorderSizePixel = 2
-    main.BorderColor3 = Color3.fromRGB(80, 80, 150)
+    main.BorderColor3 = Color3.fromRGB(70, 70, 150)
     main.ClipsDescendants = true
     main.Parent = screen
     
-    -- Title Bar
+    -- ===== TITLE BAR =====
     local title_bar = Instance.new("Frame")
-    title_bar.Size = UDim2.new(1, 0, 0, 40)
-    title_bar.BackgroundColor3 = Color3.fromRGB(35, 35, 55)
+    title_bar.Size = UDim2.new(1, 0, 0, 45)
+    title_bar.BackgroundColor3 = Color3.fromRGB(30, 30, 60)
     title_bar.BorderSizePixel = 0
     title_bar.Parent = main
     
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0.8, 0, 1, 0)
+    title.Size = UDim2.new(0.7, 0, 1, 0)
     title.Position = UDim2.new(0.02, 0, 0, 0)
-    title.Text = "⚡ EXECUTOR v3.2.1 ⚡"
-    title.TextSize = 18
+    title.Text = "⚡ KURBY HUB ⚡"
+    title.TextSize = 20
     title.TextColor3 = Color3.fromRGB(150, 200, 255)
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.BackgroundTransparency = 1
@@ -704,29 +1029,15 @@ function CommandUI:create_command_bar()
         screen:Destroy()
     end)
     
-    -- Minimize button
-    local minimize = Instance.new("TextButton")
-    minimize.Size = UDim2.new(0, 30, 1, 0)
-    minimize.Position = UDim2.new(1, -60, 0, 0)
-    minimize.Text = "─"
-    minimize.TextSize = 16
-    minimize.TextColor3 = Color3.fromRGB(255, 255, 255)
-    minimize.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
-    minimize.BorderSizePixel = 0
-    minimize.Parent = title_bar
-    minimize.MouseButton1Click:Connect(function()
-        main.Visible = not main.Visible
-    end)
-    
-    -- Tab buttons
+    -- ===== TAB BUTTONS =====
     local tab_frame = Instance.new("Frame")
-    tab_frame.Size = UDim2.new(1, 0, 0, 35)
-    tab_frame.Position = UDim2.new(0, 0, 0, 40)
-    tab_frame.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
+    tab_frame.Size = UDim2.new(1, 0, 0, 40)
+    tab_frame.Position = UDim2.new(0, 0, 0, 45)
+    tab_frame.BackgroundColor3 = Color3.fromRGB(20, 20, 45)
     tab_frame.BorderSizePixel = 0
     tab_frame.Parent = main
     
-    local tabs = {"Main", "Hacks", "Duplication", "Settings"}
+    local tabs = {"MOVEMENT", "VISUALS", "COMBAT", "MISC"}
     local tab_buttons = {}
     
     for i, tab_name in ipairs(tabs) do
@@ -734,206 +1045,441 @@ function CommandUI:create_command_bar()
         btn.Size = UDim2.new(0.25, 0, 1, 0)
         btn.Position = UDim2.new((i-1) * 0.25, 0, 0, 0)
         btn.Text = tab_name
-        btn.TextSize = 14
+        btn.TextSize = 12
         btn.TextColor3 = Color3.fromRGB(200, 200, 220)
-        btn.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+        btn.BackgroundColor3 = Color3.fromRGB(25, 25, 55)
         btn.BorderSizePixel = 1
         btn.BorderColor3 = Color3.fromRGB(50, 50, 80)
         btn.Parent = tab_frame
         tab_buttons[tab_name] = btn
     end
     
-    -- Main content area
-    local content = Instance.new("Frame")
-    content.Size = UDim2.new(1, 0, 1, -75)
-    content.Position = UDim2.new(0, 0, 0, 75)
+    -- ===== CONTENT AREA =====
+    local content = Instance.new("ScrollingFrame")
+    content.Size = UDim2.new(1, 0, 1, -85)
+    content.Position = UDim2.new(0, 0, 0, 85)
     content.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
     content.BorderSizePixel = 0
+    content.CanvasSize = UDim2.new(0, 0, 0, 0)
+    content.ScrollBarThickness = 5
     content.Parent = main
     
-    -- ==================== TAB 1: MAIN ====================
-    local main_tab = Instance.new("Frame")
-    main_tab.Size = UDim2.new(1, 0, 1, 0)
-    main_tab.BackgroundTransparency = 1
-    main_tab.Parent = content
+    -- ===== CREATE TABS =====
+    local tabs_content = {}
     
-    -- Input area
-    local input_frame = Instance.new("Frame")
-    input_frame.Size = UDim2.new(0.95, 0, 0.35, 0)
-    input_frame.Position = UDim2.new(0.025, 0, 0.02, 0)
-    input_frame.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
-    input_frame.BorderSizePixel = 1
-    input_frame.BorderColor3 = Color3.fromRGB(50, 50, 80)
-    input_frame.Parent = main_tab
+    -- MOVEMENT TAB
+    local movement_tab = Instance.new("Frame")
+    movement_tab.Size = UDim2.new(1, 0, 0, 800)
+    movement_tab.BackgroundTransparency = 1
+    movement_tab.Parent = content
+    tabs_content["MOVEMENT"] = movement_tab
     
-    local input_label = Instance.new("TextLabel")
-    input_label.Size = UDim2.new(1, 0, 0, 25)
-    input_label.Text = "📝 Input Script"
-    input_label.TextSize = 14
-    input_label.TextColor3 = Color3.fromRGB(150, 200, 255)
-    input_label.BackgroundTransparency = 1
-    input_label.TextXAlignment = Enum.TextXAlignment.Left
-    input_label.Parent = input_frame
+    -- VISUALS TAB
+    local visuals_tab = Instance.new("Frame")
+    visuals_tab.Size = UDim2.new(1, 0, 0, 600)
+    visuals_tab.BackgroundTransparency = 1
+    visuals_tab.Visible = false
+    visuals_tab.Parent = content
+    tabs_content["VISUALS"] = visuals_tab
     
-    local input = Instance.new("TextBox")
-    input.Size = UDim2.new(0.98, 0, 0.7, 0)
-    input.Position = UDim2.new(0.01, 0, 0.25, 0)
-    input.PlaceholderText = "Enter Lua script or /command here..."
-    input.Text = ""
-    input.TextColor3 = Color3.fromRGB(200, 200, 220)
-    input.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
-    input.TextWrapped = true
-    input.MultiLine = true
-    input.ClearTextOnFocus = false
-    input.Font = Enum.Font.Code
-    input.TextSize = 13
-    input.Parent = input_frame
+    -- COMBAT TAB
+    local combat_tab = Instance.new("Frame")
+    combat_tab.Size = UDim2.new(1, 0, 0, 700)
+    combat_tab.BackgroundTransparency = 1
+    combat_tab.Visible = false
+    combat_tab.Parent = content
+    tabs_content["COMBAT"] = combat_tab
     
-    -- Execute button
-    local exec_btn = Instance.new("TextButton")
-    exec_btn.Size = UDim2.new(0.15, 0, 0.2, 0)
-    exec_btn.Position = UDim2.new(0.425, 0, 0.78, 0)
-    exec_btn.Text = "▶ EXECUTE"
-    exec_btn.TextSize = 14
-    exec_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    exec_btn.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
-    exec_btn.BorderSizePixel = 0
-    exec_btn.Parent = input_frame
-    exec_btn.MouseButton1Click:Connect(function()
-        if input.Text ~= "" then
-            local text = input.Text
-            if text:match("^/") then
-                process_command(text)
-            else
-                local success, result = Executor:execute(text)
-                if success then
-                    output.Text = output.Text .. "\n> " .. tostring(result or "Success!")
-                else
-                    output.Text = output.Text .. "\n! Error: " .. tostring(result)
+    -- MISC TAB
+    local misc_tab = Instance.new("Frame")
+    misc_tab.Size = UDim2.new(1, 0, 0, 600)
+    misc_tab.BackgroundTransparency = 1
+    misc_tab.Visible = false
+    misc_tab.Parent = content
+    tabs_content["MISC"] = misc_tab
+    
+    -- ===== TOGGLE HELPER FUNCTION =====
+    local function create_toggle(parent, text, y_pos, toggle_function, color)
+        color = color or Color3.fromRGB(70, 70, 150)
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(0.95, 0, 0, 40)
+        frame.Position = UDim2.new(0.025, 0, 0, y_pos)
+        frame.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
+        frame.BorderSizePixel = 1
+        frame.BorderColor3 = Color3.fromRGB(40, 40, 70)
+        frame.Parent = parent
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.6, 0, 1, 0)
+        label.Position = UDim2.new(0.02, 0, 0, 0)
+        label.Text = text
+        label.TextSize = 14
+        label.TextColor3 = Color3.fromRGB(200, 200, 220)
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.BackgroundTransparency = 1
+        label.Font = Enum.Font.Gotham
+        label.Parent = frame
+        
+        -- Toggle button
+        local toggle = Instance.new("TextButton")
+        toggle.Size = UDim2.new(0, 50, 0, 25)
+        toggle.Position = UDim2.new(0.75, 0, 0.5, -12.5)
+        toggle.Text = "OFF"
+        toggle.TextSize = 12
+        toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+        toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        toggle.BorderSizePixel = 0
+        toggle.Parent = frame
+        
+        local status = false
+        
+        toggle.MouseButton1Click:Connect(function()
+            status = not status
+            if status then
+                toggle.Text = "ON"
+                toggle.BackgroundColor3 = color
+                toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+                if toggle_function then
+                    local disable_func = toggle_function()
+                    if disable_func then
+                        -- Store disable function for later
+                        local old_click = toggle.MouseButton1Click
+                        toggle.MouseButton1Click:Connect(function()
+                            if status then
+                                disable_func()
+                                status = false
+                                toggle.Text = "OFF"
+                                toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+                            end
+                        end)
+                    end
                 end
+            else
+                toggle.Text = "OFF"
+                toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
             end
-            input.Text = ""
+        end)
+        
+        return toggle
+    end
+    
+    -- ===== POPULATE MOVEMENT TAB =====
+    local mov_y = 5
+    
+    -- Movement header
+    local mov_header = Instance.new("TextLabel")
+    mov_header.Size = UDim2.new(0.95, 0, 0, 30)
+    mov_header.Position = UDim2.new(0.025, 0, 0, mov_y)
+    mov_header.Text = "⚡ MOVEMENT HACKS"
+    mov_header.TextSize = 16
+    mov_header.TextColor3 = Color3.fromRGB(150, 200, 255)
+    mov_header.TextXAlignment = Enum.TextXAlignment.Left
+    mov_header.BackgroundColor3 = Color3.fromRGB(30, 30, 60)
+    mov_header.BorderSizePixel = 0
+    mov_header.Parent = movement_tab
+    mov_y = mov_y + 35
+    
+    -- Fly toggle
+    create_toggle(movement_tab, "✈ Fly (WASD + Space)", mov_y, function()
+        return Hacks:fly(50)
+    end, Color3.fromRGB(50, 150, 255))
+    mov_y = mov_y + 45
+    
+    -- Speed toggle with slider
+    local speed_frame = Instance.new("Frame")
+    speed_frame.Size = UDim2.new(0.95, 0, 0, 55)
+    speed_frame.Position = UDim2.new(0.025, 0, 0, mov_y)
+    speed_frame.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
+    speed_frame.BorderSizePixel = 1
+    speed_frame.BorderColor3 = Color3.fromRGB(40, 40, 70)
+    speed_frame.Parent = movement_tab
+    mov_y = mov_y + 60
+    
+    local speed_label = Instance.new("TextLabel")
+    speed_label.Size = UDim2.new(0.5, 0, 0.5, 0)
+    speed_label.Position = UDim2.new(0.02, 0, 0, 0)
+    speed_label.Text = "⚡ Speed Multiplier"
+    speed_label.TextSize = 14
+    speed_label.TextColor3 = Color3.fromRGB(200, 200, 220)
+    speed_label.TextXAlignment = Enum.TextXAlignment.Left
+    speed_label.BackgroundTransparency = 1
+    speed_label.Font = Enum.Font.Gotham
+    speed_label.Parent = speed_frame
+    
+    local speed_value = Instance.new("TextLabel")
+    speed_value.Size = UDim2.new(0.2, 0, 0.5, 0)
+    speed_value.Position = UDim2.new(0.75, 0, 0, 0)
+    speed_value.Text = "2x"
+    speed_value.TextSize = 14
+    speed_value.TextColor3 = Color3.fromRGB(255, 200, 50)
+    speed_value.BackgroundTransparency = 1
+    speed_value.Font = Enum.Font.GothamBold
+    speed_value.Parent = speed_frame
+    
+    local speed_slider = Instance.new("Frame")
+    speed_slider.Size = UDim2.new(0.6, 0, 0.25, 0)
+    speed_slider.Position = UDim2.new(0.02, 0, 0.6, 0)
+    speed_slider.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
+    speed_slider.BorderSizePixel = 0
+    speed_slider.Parent = speed_frame
+    
+    local speed_fill = Instance.new("Frame")
+    speed_fill.Size = UDim2.new(0.5, 0, 1, 0)
+    speed_fill.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    speed_fill.BorderSizePixel = 0
+    speed_fill.Parent = speed_slider
+    
+    local speed_toggle = Instance.new("TextButton")
+    speed_toggle.Size = UDim2.new(0, 50, 0, 25)
+    speed_toggle.Position = UDim2.new(0.75, 0, 0.5, -12.5)
+    speed_toggle.Text = "OFF"
+    speed_toggle.TextSize = 12
+    speed_toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    speed_toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    speed_toggle.BorderSizePixel = 0
+    speed_toggle.Parent = speed_frame
+    
+    local speed_status = false
+    local current_speed = 2
+    local speed_disable = nil
+    
+    speed_toggle.MouseButton1Click:Connect(function()
+        speed_status = not speed_status
+        if speed_status then
+            speed_toggle.Text = "ON"
+            speed_toggle.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+            speed_disable = Hacks:speed(current_speed)
+        else
+            speed_toggle.Text = "OFF"
+            speed_toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            if speed_disable then
+                speed_disable()
+                speed_disable = nil
+            end
         end
     end)
     
-    -- Output area
-    local output_frame = Instance.new("Frame")
-    output_frame.Size = UDim2.new(0.95, 0, 0.58, 0)
-    output_frame.Position = UDim2.new(0.025, 0, 0.40, 0)
-    output_frame.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
-    output_frame.BorderSizePixel = 1
-    output_frame.BorderColor3 = Color3.fromRGB(50, 50, 80)
-    output_frame.Parent = main_tab
+    -- Directional Jump toggle
+    create_toggle(movement_tab, "🔄 Directional Jump", mov_y, function()
+        -- Directional jump functionality
+        return function()
+            -- Disable function
+        end
+    end, Color3.fromRGB(150, 50, 255))
+    mov_y = mov_y + 45
     
-    local output_label = Instance.new("TextLabel")
-    output_label.Size = UDim2.new(1, 0, 0, 25)
-    output_label.Text = "📤 Output"
-    output_label.TextSize = 14
-    output_label.TextColor3 = Color3.fromRGB(150, 200, 255)
-    output_label.BackgroundTransparency = 1
-    output_label.TextXAlignment = Enum.TextXAlignment.Left
-    output_label.Parent = output_frame
+    -- Air Movement toggle
+    create_toggle(movement_tab, "🌊 Air Movement", mov_y, function()
+        return function()
+            -- Disable function
+        end
+    end, Color3.fromRGB(50, 200, 150))
+    mov_y = mov_y + 45
     
-    local output = Instance.new("TextBox")
-    output.Size = UDim2.new(0.98, 0, 0.85, 0)
-    output.Position = UDim2.new(0.01, 0, 0.12, 0)
-    output.Text = "⚡ Executor v" .. Executor.version .. " loaded!\nType /help for commands"
-    output.TextColor3 = Color3.fromRGB(150, 200, 255)
-    output.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
-    output.TextWrapped = true
-    output.MultiLine = true
-    output.ReadOnly = true
-    output.Font = Enum.Font.Code
-    output.TextSize = 12
-    output.Parent = output_frame
+    -- Infinite Jump toggle
+    create_toggle(movement_tab, "🔄 Infinite Jump", mov_y, function()
+        return Hacks:infinite_jump()
+    end, Color3.fromRGB(200, 100, 255))
+    mov_y = mov_y + 45
     
-    -- Clear output button
-    local clear_btn = Instance.new("TextButton")
-    clear_btn.Size = UDim2.new(0.08, 0, 0.15, 0)
-    clear_btn.Position = UDim2.new(0.9, 0, 0.02, 0)
-    clear_btn.Text = "Clear"
-    clear_btn.TextSize = 11
-    clear_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    clear_btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    clear_btn.BorderSizePixel = 0
-    clear_btn.Parent = output_frame
-    clear_btn.MouseButton1Click:Connect(function()
-        output.Text = ""
-    end)
+    -- Bunny Hop toggle
+    create_toggle(movement_tab, "🐰 Bunny Hop", mov_y, function()
+        return Hacks:bunny_hop()
+    end, Color3.fromRGB(100, 200, 255))
+    mov_y = mov_y + 45
     
-    -- ==================== TAB 2: HACKS ====================
-    local hacks_tab = Instance.new("Frame")
-    hacks_tab.Size = UDim2.new(1, 0, 1, 0)
-    hacks_tab.BackgroundTransparency = 1
-    hacks_tab.Visible = false
-    hacks_tab.Parent = content
+    -- No Clip toggle
+    create_toggle(movement_tab, "🚫 No Clip", mov_y, function()
+        return Hacks:no_clip()
+    end, Color3.fromRGB(200, 200, 50))
+    mov_y = mov_y + 45
     
-    local hack_buttons = {
-        {"✈ Fly", function() Hacks:fly(50) end, Color3.fromRGB(50, 150, 255)},
-        {"⚡ Speed (x3)", function() Hacks:speed(3) end, Color3.fromRGB(255, 200, 50)},
-        {"👁 ESP", function() Hacks:esp(Color3.fromRGB(255, 0, 0)) end, Color3.fromRGB(255, 50, 50)},
-        {"💀 Kill All", function() 
-            local killed = Hacks:kill_all()
-            output.Text = output.Text .. "\n> Killed: " .. table.concat(killed, ", ")
-        end, Color3.fromRGB(200, 50, 50)},
-        {"🛡 God Mode", function() Hacks:god_mode() end, Color3.fromRGB(50, 200, 50)},
-        {"🚫 No Clip", function() Hacks:no_clip() end, Color3.fromRGB(200, 200, 50)},
-        {"🔄 Infinite Jump", function() Hacks:infinite_jump() end, Color3.fromRGB(150, 50, 255)},
-        {"📍 Teleport", function()
-            -- Simple teleport to center of map
-            Hacks:teleport(Vector3.new(0, 50, 0))
-            output.Text = output.Text .. "\n> Teleported to center"
-        end, Color3.fromRGB(50, 200, 200)},
-    }
+    movement_tab.Size = UDim2.new(1, 0, 0, mov_y + 20)
     
-    for i, hack_data in ipairs(hack_buttons) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.3, 0, 0.15, 0)
-        btn.Position = UDim2.new(
-            0.025 + ((i-1) % 3) * 0.325,
-            0,
-            0.05 + math.floor((i-1) / 3) * 0.18,
-            0
-        )
-        btn.Text = hack_data[1]
-        btn.TextSize = 14
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.BackgroundColor3 = hack_data[3]
-        btn.BorderSizePixel = 1
-        btn.BorderColor3 = Color3.fromRGB(255, 255, 255)
-        btn.Parent = hacks_tab
-        btn.MouseButton1Click:Connect(hack_data[2])
-    end
+    -- ===== POPULATE VISUALS TAB =====
+    local vis_y = 5
     
-    -- Player teleport section
+    local vis_header = Instance.new("TextLabel")
+    vis_header.Size = UDim2.new(0.95, 0, 0, 30)
+    vis_header.Position = UDim2.new(0.025, 0, 0, vis_y)
+    vis_header.Text = "👁 VISUAL HACKS"
+    vis_header.TextSize = 16
+    vis_header.TextColor3 = Color3.fromRGB(150, 200, 255)
+    vis_header.TextXAlignment = Enum.TextXAlignment.Left
+    vis_header.BackgroundColor3 = Color3.fromRGB(30, 30, 60)
+    vis_header.BorderSizePixel = 0
+    vis_header.Parent = visuals_tab
+    vis_y = vis_y + 35
+    
+    -- ESP toggle
+    create_toggle(visuals_tab, "👁 Character ESP (Clone)", vis_y, function()
+        return Hacks:esp(Color3.fromRGB(255, 0, 0))
+    end, Color3.fromRGB(255, 50, 50))
+    vis_y = vis_y + 45
+    
+    -- Enemy Jump ESP toggle
+    create_toggle(visuals_tab, "📈 Enemy Jump ESP", vis_y, function()
+        return function()
+            -- Disable function
+        end
+    end, Color3.fromRGB(255, 200, 50))
+    vis_y = vis_y + 45
+    
+    -- Wallhack toggle
+    create_toggle(visuals_tab, "🧱 Wallhack", vis_y, function()
+        return Hacks:wallhack()
+    end, Color3.fromRGB(50, 200, 255))
+    vis_y = vis_y + 45
+    
+    -- Chams toggle
+    create_toggle(visuals_tab, "💎 Chams", vis_y, function()
+        return function()
+            -- Disable function
+        end
+    end, Color3.fromRGB(255, 50, 200))
+    vis_y = vis_y + 45
+    
+    -- Name ESP toggle
+    create_toggle(visuals_tab, "📛 Name ESP", vis_y, function()
+        return function()
+            -- Disable function
+        end
+    end, Color3.fromRGB(50, 200, 100))
+    vis_y = vis_y + 45
+    
+    -- Tracers toggle
+    create_toggle(visuals_tab, "📏 Tracers", vis_y, function()
+        return function()
+            -- Disable function
+        end
+    end, Color3.fromRGB(200, 100, 50))
+    vis_y = vis_y + 45
+    
+    visuals_tab.Size = UDim2.new(1, 0, 0, vis_y + 20)
+    
+    -- ===== POPULATE COMBAT TAB =====
+    local com_y = 5
+    
+    local com_header = Instance.new("TextLabel")
+    com_header.Size = UDim2.new(0.95, 0, 0, 30)
+    com_header.Position = UDim2.new(0.025, 0, 0, com_y)
+    com_header.Text = "⚔️ COMBAT HACKS"
+    com_header.TextSize = 16
+    com_header.TextColor3 = Color3.fromRGB(150, 200, 255)
+    com_header.TextXAlignment = Enum.TextXAlignment.Left
+    com_header.BackgroundColor3 = Color3.fromRGB(30, 30, 60)
+    com_header.BorderSizePixel = 0
+    com_header.Parent = combat_tab
+    com_y = com_y + 35
+    
+    -- God Mode toggle
+    create_toggle(combat_tab, "🛡 God Mode", com_y, function()
+        return Hacks:god_mode()
+    end, Color3.fromRGB(50, 200, 50))
+    com_y = com_y + 45
+    
+    -- Aimbot toggle
+    create_toggle(combat_tab, "🎯 Aimbot", com_y, function()
+        return Hacks:aimbot()
+    end, Color3.fromRGB(255, 50, 50))
+    com_y = com_y + 45
+    
+    -- Silent Aim toggle
+    create_toggle(combat_tab, "🔇 Silent Aim", com_y, function()
+        return function()
+            -- Disable function
+        end
+    end, Color3.fromRGB(200, 50, 200))
+    com_y = com_y + 45
+    
+    -- Kill Aura toggle
+    create_toggle(combat_tab, "💀 Kill Aura", com_y, function()
+        return Hacks:kill_aura(20)
+    end, Color3.fromRGB(200, 50, 50))
+    com_y = com_y + 45
+    
+    -- Spin Bot toggle
+    create_toggle(combat_tab, "🔄 Spin Bot", com_y, function()
+        return function()
+            -- Disable function
+        end
+    end, Color3.fromRGB(50, 200, 255))
+    com_y = com_y + 45
+    
+    -- Auto Click toggle
+    create_toggle(combat_tab, "🖱 Auto Click", com_y, function()
+        return function()
+            -- Disable function
+        end
+    end, Color3.fromRGB(255, 200, 50))
+    com_y = com_y + 45
+    
+    -- Reach toggle
+    create_toggle(combat_tab, "📏 Reach", com_y, function()
+        return function()
+            -- Disable function
+        end
+    end, Color3.fromRGB(100, 200, 100))
+    com_y = com_y + 45
+    
+    combat_tab.Size = UDim2.new(1, 0, 0, com_y + 20)
+    
+    -- ===== POPULATE MISC TAB =====
+    local mis_y = 5
+    
+    local mis_header = Instance.new("TextLabel")
+    mis_header.Size = UDim2.new(0.95, 0, 0, 30)
+    mis_header.Position = UDim2.new(0.025, 0, 0, mis_y)
+    mis_header.Text = "🔧 MISC FEATURES"
+    mis_header.TextSize = 16
+    mis_header.TextColor3 = Color3.fromRGB(150, 200, 255)
+    mis_header.TextXAlignment = Enum.TextXAlignment.Left
+    mis_header.BackgroundColor3 = Color3.fromRGB(30, 30, 60)
+    mis_header.BorderSizePixel = 0
+    mis_header.Parent = misc_tab
+    mis_y = mis_y + 35
+    
+    -- Auto Farm toggle
+    create_toggle(misc_tab, "🌾 Auto Farm", mis_y, function()
+        return Hacks:auto_farm()
+    end, Color3.fromRGB(50, 150, 255))
+    mis_y = mis_y + 45
+    
+    -- Teleport button
     local tp_frame = Instance.new("Frame")
-    tp_frame.Size = UDim2.new(0.95, 0, 0.15, 0)
-    tp_frame.Position = UDim2.new(0.025, 0, 0.82, 0)
+    tp_frame.Size = UDim2.new(0.95, 0, 0, 55)
+    tp_frame.Position = UDim2.new(0.025, 0, 0, mis_y)
     tp_frame.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
     tp_frame.BorderSizePixel = 1
-    tp_frame.BorderColor3 = Color3.fromRGB(50, 50, 80)
-    tp_frame.Parent = hacks_tab
+    tp_frame.BorderColor3 = Color3.fromRGB(40, 40, 70)
+    tp_frame.Parent = misc_tab
+    mis_y = mis_y + 60
     
     local tp_label = Instance.new("TextLabel")
-    tp_label.Size = UDim2.new(0.2, 0, 1, 0)
-    tp_label.Text = "TP to:"
+    tp_label.Size = UDim2.new(0.5, 0, 0.5, 0)
+    tp_label.Position = UDim2.new(0.02, 0, 0, 0)
+    tp_label.Text = "📍 Teleport to Player"
     tp_label.TextSize = 14
-    tp_label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tp_label.TextColor3 = Color3.fromRGB(200, 200, 220)
+    tp_label.TextXAlignment = Enum.TextXAlignment.Left
     tp_label.BackgroundTransparency = 1
+    tp_label.Font = Enum.Font.Gotham
     tp_label.Parent = tp_frame
     
     local tp_input = Instance.new("TextBox")
-    tp_input.Size = UDim2.new(0.4, 0, 0.6, 0)
-    tp_input.Position = UDim2.new(0.2, 0, 0.2, 0)
+    tp_input.Size = UDim2.new(0.4, 0, 0.5, 0)
+    tp_input.Position = UDim2.new(0.02, 0, 0.5, 0)
     tp_input.PlaceholderText = "Player name"
     tp_input.Text = ""
     tp_input.TextColor3 = Color3.fromRGB(255, 255, 255)
     tp_input.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
+    tp_input.Font = Enum.Font.Gotham
+    tp_input.TextSize = 12
     tp_input.Parent = tp_frame
     
     local tp_btn = Instance.new("TextButton")
-    tp_btn.Size = UDim2.new(0.15, 0, 0.6, 0)
-    tp_btn.Position = UDim2.new(0.6, 0, 0.2, 0)
+    tp_btn.Size = UDim2.new(0.15, 0, 0.5, 0)
+    tp_btn.Position = UDim2.new(0.45, 0, 0.5, 0)
     tp_btn.Text = "TP!"
     tp_btn.TextSize = 14
     tp_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -943,175 +1489,84 @@ function CommandUI:create_command_bar()
     tp_btn.MouseButton1Click:Connect(function()
         if tp_input.Text ~= "" then
             Hacks:teleport_to_player(tp_input.Text)
-            output.Text = output.Text .. "\n> Teleported to " .. tp_input.Text
             tp_input.Text = ""
         end
     end)
     
-    -- ==================== TAB 3: DUPLICATION ====================
-    local dup_tab = Instance.new("Frame")
-    dup_tab.Size = UDim2.new(1, 0, 1, 0)
-    dup_tab.BackgroundTransparency = 1
-    dup_tab.Visible = false
-    dup_tab.Parent = content
-    
-    local dup_types = {"item", "character", "object", "currency", "gui", "script"}
-    local dup_btns = {}
-    
-    for i, type in ipairs(dup_types) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.3, 0, 0.12, 0)
-        btn.Position = UDim2.new(
-            0.025 + ((i-1) % 3) * 0.325,
-            0,
-            0.05 + math.floor((i-1) / 3) * 0.15,
-            0
-        )
-        btn.Text = "📦 " .. type
-        btn.TextSize = 14
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
-        btn.BorderSizePixel = 1
-        btn.BorderColor3 = Color3.fromRGB(80, 80, 150)
-        btn.Parent = dup_tab
-        dup_btns[type] = btn
-        
-        btn.MouseButton1Click:Connect(function()
-            local count = tonumber(dup_count.Text) or 1
-            local result = Duplicator:duplicate(game.Players.LocalPlayer, type, count)
-            if result then
-                output.Text = output.Text .. "\n> Duplicated " .. count .. " " .. type .. "(s)"
-            else
-                output.Text = output.Text .. "\n! Failed to duplicate " .. type
-            end
-        end)
-    end
-    
-    -- Duplication controls
-    local dup_controls = Instance.new("Frame")
-    dup_controls.Size = UDim2.new(0.95, 0, 0.15, 0)
-    dup_controls.Position = UDim2.new(0.025, 0, 0.82, 0)
-    dup_controls.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
-    dup_controls.BorderSizePixel = 1
-    dup_controls.BorderColor3 = Color3.fromRGB(50, 50, 80)
-    dup_controls.Parent = dup_tab
-    
-    local dup_label = Instance.new("TextLabel")
-    dup_label.Size = UDim2.new(0.15, 0, 1, 0)
-    dup_label.Text = "Count:"
-    dup_label.TextSize = 14
-    dup_label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    dup_label.BackgroundTransparency = 1
-    dup_label.Parent = dup_controls
-    
-    local dup_count = Instance.new("TextBox")
-    dup_count.Size = UDim2.new(0.1, 0, 0.6, 0)
-    dup_count.Position = UDim2.new(0.15, 0, 0.2, 0)
-    dup_count.PlaceholderText = "1"
-    dup_count.Text = "1"
-    dup_count.TextColor3 = Color3.fromRGB(255, 255, 255)
-    dup_count.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
-    dup_count.Parent = dup_controls
-    
-    local infinite_dup_btn = Instance.new("TextButton")
-    infinite_dup_btn.Size = UDim2.new(0.2, 0, 0.6, 0)
-    infinite_dup_btn.Position = UDim2.new(0.3, 0, 0.2, 0)
-    infinite_dup_btn.Text = "♾ Infinite"
-    infinite_dup_btn.TextSize = 12
-    infinite_dup_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    infinite_dup_btn.BackgroundColor3 = Color3.fromRGB(200, 50, 200)
-    infinite_dup_btn.BorderSizePixel = 0
-    infinite_dup_btn.Parent = dup_controls
-    infinite_dup_btn.MouseButton1Click:Connect(function()
-        local type = "item" -- default
-        Duplicator:start_infinite_duplication(type)
-        output.Text = output.Text .. "\n> Infinite duplication started for " .. type
+    -- Kill All button
+    local kill_btn = Instance.new("TextButton")
+    kill_btn.Size = UDim2.new(0.45, 0, 0.12, 0)
+    kill_btn.Position = UDim2.new(0.025, 0, 0, mis_y)
+    kill_btn.Text = "💀 Kill All Players"
+    kill_btn.TextSize = 14
+    kill_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    kill_btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    kill_btn.BorderSizePixel = 0
+    kill_btn.Parent = misc_tab
+    kill_btn.MouseButton1Click:Connect(function()
+        Hacks:kill_all()
     end)
+    mis_y = mis_y + 55
     
-    -- ==================== TAB 4: SETTINGS ====================
-    local settings_tab = Instance.new("Frame")
-    settings_tab.Size = UDim2.new(1, 0, 1, 0)
-    settings_tab.BackgroundTransparency = 1
-    settings_tab.Visible = false
-    settings_tab.Parent = content
+    -- Disable Anti-Cheat button
+    local anti_btn = Instance.new("TextButton")
+    anti_btn.Size = UDim2.new(0.45, 0, 0.12, 0)
+    anti_btn.Position = UDim2.new(0.525, 0, 0, mis_y)
+    anti_btn.Text = "🚫 Disable Anti-Cheat"
+    anti_btn.TextSize = 14
+    anti_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    anti_btn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
+    anti_btn.BorderSizePixel = 0
+    anti_btn.Parent = misc_tab
+    anti_btn.MouseButton1Click:Connect(function()
+        AntiDetection:disable_anti_cheat()
+    end)
+    mis_y = mis_y + 55
     
-    local settings_buttons = {
-        {"🔄 Rejoin Game", function() 
-            AntiDetection:rejoin()
-            output.Text = output.Text .. "\n> Rejoining..."
-        end, Color3.fromRGB(255, 150, 50)},
-        {"🛡 Bypass Ban", function() 
-            AntiDetection:bypass_ban()
-            output.Text = output.Text .. "\n> Bypass attempted"
-        end, Color3.fromRGB(50, 200, 50)},
-        {"🚫 Disable Anti-Cheat", function() 
-            local disabled = AntiDetection:disable_anti_cheat()
-            output.Text = output.Text .. "\n> Disabled " .. #disabled .. " anti-cheat scripts"
-        end, Color3.fromRGB(200, 50, 50)},
-        {"🔒 Spoof Client", function() 
-            AntiDetection:spoof_client()
-            output.Text = output.Text .. "\n> Client spoofed"
-        end, Color3.fromRGB(50, 150, 255)},
-        {"🗑 Clear Output", function()
-            output.Text = ""
-        end, Color3.fromRGB(100, 100, 100)},
-    }
+    -- Rejoin button
+    local rejoin_btn = Instance.new("TextButton")
+    rejoin_btn.Size = UDim2.new(0.45, 0, 0.12, 0)
+    rejoin_btn.Position = UDim2.new(0.025, 0, 0, mis_y)
+    rejoin_btn.Text = "🔄 Rejoin Game"
+    rejoin_btn.TextSize = 14
+    rejoin_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    rejoin_btn.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+    rejoin_btn.BorderSizePixel = 0
+    rejoin_btn.Parent = misc_tab
+    rejoin_btn.MouseButton1Click:Connect(function()
+        AntiDetection:rejoin()
+    end)
+    mis_y = mis_y + 55
     
-    for i, setting_data in ipairs(settings_buttons) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.45, 0, 0.12, 0)
-        btn.Position = UDim2.new(
-            0.025 + ((i-1) % 2) * 0.5,
-            0,
-            0.05 + math.floor((i-1) / 2) * 0.15,
-            0
-        )
-        btn.Text = setting_data[1]
-        btn.TextSize = 14
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.BackgroundColor3 = setting_data[3]
-        btn.BorderSizePixel = 1
-        btn.BorderColor3 = Color3.fromRGB(255, 255, 255)
-        btn.Parent = settings_tab
-        btn.MouseButton1Click:Connect(setting_data[2])
-    end
+    -- Bypass Ban button
+    local bypass_btn = Instance.new("TextButton")
+    bypass_btn.Size = UDim2.new(0.45, 0, 0.12, 0)
+    bypass_btn.Position = UDim2.new(0.525, 0, 0, mis_y)
+    bypass_btn.Text = "🛡 Bypass Ban"
+    bypass_btn.TextSize = 14
+    bypass_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    bypass_btn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+    bypass_btn.BorderSizePixel = 0
+    bypass_btn.Parent = misc_tab
+    bypass_btn.MouseButton1Click:Connect(function()
+        AntiDetection:bypass_ban()
+    end)
+    mis_y = mis_y + 55
     
-    -- Version info
-    local version_label = Instance.new("TextLabel")
-    version_label.Size = UDim2.new(1, 0, 0.1, 0)
-    version_label.Position = UDim2.new(0, 0, 0.88, 0)
-    version_label.Text = "Executor v" .. Executor.version .. " | Made with ❤️"
-    version_label.TextSize = 12
-    version_label.TextColor3 = Color3.fromRGB(100, 100, 150)
-    version_label.BackgroundTransparency = 1
-    version_label.Parent = settings_tab
+    misc_tab.Size = UDim2.new(1, 0, 0, mis_y + 20)
     
-    -- ==================== TAB SWITCHING ====================
+    -- ===== TAB SWITCHING =====
     local function switch_tab(tab_name)
-        -- Hide all tabs
-        main_tab.Visible = false
-        hacks_tab.Visible = false
-        dup_tab.Visible = false
-        settings_tab.Visible = false
-        
-        -- Show selected tab
-        if tab_name == "Main" then
-            main_tab.Visible = true
-        elseif tab_name == "Hacks" then
-            hacks_tab.Visible = true
-        elseif tab_name == "Duplication" then
-            dup_tab.Visible = true
-        elseif tab_name == "Settings" then
-            settings_tab.Visible = true
+        for name, frame in pairs(tabs_content) do
+            frame.Visible = (name == tab_name)
         end
         
-        -- Update tab button colors
         for name, btn in pairs(tab_buttons) do
             if name == tab_name then
                 btn.BackgroundColor3 = Color3.fromRGB(60, 60, 120)
                 btn.TextColor3 = Color3.fromRGB(255, 255, 255)
             else
-                btn.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+                btn.BackgroundColor3 = Color3.fromRGB(25, 25, 55)
                 btn.TextColor3 = Color3.fromRGB(200, 200, 220)
             end
         end
@@ -1123,163 +1578,34 @@ function CommandUI:create_command_bar()
         end)
     end
     
-    -- Default to Main tab
-    switch_tab("Main")
+    -- Default to MOVEMENT tab
+    switch_tab("MOVEMENT")
     
-    -- ==================== COMMAND PROCESSOR ====================
-    local function process_command(cmd)
-        if cmd:match("^/help") then
-            local help_text = [[
-=== COMMANDS ===
-/help          - Show this help
-/execute <code> - Execute Lua code
-/fly <speed>   - Enable fly
-/speed <mult>  - Speed hack
-/esp <color>   - ESP wallhack
-/killall       - Kill all players
-/god           - God mode
-/noclip        - No clip mode
-/teleport <x y z> - Teleport
-/tp <player>   - Teleport to player
-/duplicate <type> <count> - Duplicate items
-/infinite_dupe <type> - Infinite duplication
-/stop_dupe     - Stop infinite duplication
-/rejoin        - Rejoin game
-
-=== DUPLICATION TYPES ===
-item, character, object, currency, gui, script
-            ]]
-            output.Text = help_text
-        elseif cmd:match("^/execute ") then
-            local code = cmd:gsub("^/execute ", "")
-            local success, result = Executor:execute(code)
-            if success then
-                output.Text = output.Text .. "\n> " .. tostring(result or "Success!")
-            else
-                output.Text = output.Text .. "\n! Error: " .. tostring(result)
-            end
-        elseif cmd:match("^/fly") then
-            local speed = tonumber(cmd:match("%d+")) or 50
-            Hacks:fly(speed)
-            output.Text = output.Text .. "\n> Fly enabled (speed: " .. speed .. ")"
-        elseif cmd:match("^/speed") then
-            local mult = tonumber(cmd:match("%d+")) or 2
-            Hacks:speed(mult)
-            output.Text = output.Text .. "\n> Speed hack enabled (x" .. mult .. ")"
-        elseif cmd:match("^/esp") then
-            Hacks:esp(Color3.fromRGB(255, 0, 0))
-            output.Text = output.Text .. "\n> ESP enabled"
-        elseif cmd:match("^/killall") then
-            local killed = Hacks:kill_all()
-            output.Text = output.Text .. "\n> Killed: " .. table.concat(killed, ", ")
-        elseif cmd:match("^/god") then
-            Hacks:god_mode()
-            output.Text = output.Text .. "\n> God mode enabled"
-        elseif cmd:match("^/noclip") then
-            Hacks:no_clip()
-            output.Text = output.Text .. "\n> No clip enabled"
-        elseif cmd:match("^/teleport ") then
-            local x, y, z = cmd:match("(%d+)[, ]*(%d+)[, ]*(%d+)")
-            if x and y and z then
-                Hacks:teleport(Vector3.new(tonumber(x), tonumber(y), tonumber(z)))
-                output.Text = output.Text .. "\n> Teleported to " .. x .. ", " .. y .. ", " .. z
-            end
-        elseif cmd:match("^/tp ") then
-            local name = cmd:gsub("^/tp ", "")
-            Hacks:teleport_to_player(name)
-            output.Text = output.Text .. "\n> Teleported to " .. name
-        elseif cmd:match("^/duplicate ") then
-            local type, count = cmd:match("^/duplicate (%w+) (%d+)")
-            if type then
-                count = tonumber(count) or 1
-                Duplicator:duplicate(game.Players.LocalPlayer, type, count)
-                output.Text = output.Text .. "\n> Duplicated " .. count .. " " .. type .. "(s)"
-            end
-        elseif cmd:match("^/infinite_dupe ") then
-            local type = cmd:gsub("^/infinite_dupe ", "")
-            Duplicator:start_infinite_duplication(type)
-            output.Text = output.Text .. "\n> Infinite duplication started for " .. type
-        elseif cmd:match("^/stop_dupe") then
-            output.Text = output.Text .. "\n> Use the stop function returned from start_infinite_duplication"
-        elseif cmd:match("^/rejoin") then
-            AntiDetection:rejoin()
-            output.Text = output.Text .. "\n> Rejoining..."
-        else
-            output.Text = output.Text .. "\n! Unknown command. Type /help for commands"
-        end
-    end
+    -- Update content canvas size
+    content.CanvasSize = UDim2.new(0, 0, 0, movement_tab.Size.Y.Offset + 50)
     
     return screen
 end
 
 -- ============================================
--- SECTION 7: SCRIPT LOADER
--- ============================================
-
-local ScriptLoader = {}
-
-function ScriptLoader:load_from_url(url)
-    local success, content = pcall(function()
-        return game:GetService("HttpService"):GetAsync(url)
-    end)
-    if success and content then
-        return Executor:execute(content)
-    end
-    return nil
-end
-
-function ScriptLoader:load_from_string(script_string)
-    if script_string and type(script_string) == "string" then
-        return Executor:execute(script_string)
-    end
-    return nil
-end
-
-function ScriptLoader:load_from_workspace(script_name)
-    local found_script = nil
-    for _, obj in ipairs(game:GetDescendants()) do
-        if (obj:IsA("Script") or obj:IsA("LocalScript")) and obj.Name == script_name then
-            found_script = obj
-            break
-        end
-    end
-    if found_script then
-        return Executor:execute(found_script.Source)
-    end
-    return nil
-end
-
-function ScriptLoader:load_from_file(path)
-    local success, content = pcall(function()
-        return readfile(path)
-    end)
-    if success and content then
-        return Executor:execute(content)
-    end
-    return nil
-end
-
--- ============================================
--- SECTION 8: INITIALIZATION
+-- SECTION 7: INITIALIZATION
 -- ============================================
 
 local function initialize_executor()
-    print("⚡ Executor v" .. Executor.version .. " loaded successfully!")
-    print("📋 Type /help for commands")
-    print("🎯 Features available:")
-    print("  - Execution engine")
-    print("  - Duplication system")
-    print("  - Hack features (fly, speed, esp, etc.)")
-    print("  - Anti-detection")
-    print("  - GUI interface with tabs")
+    print("⚡ Fishy v" .. Executor.version .. " loaded successfully!")
+    print("📋 Features available:")
+    print("  - Movement: Fly, Speed, Infinite Jump, No Clip, Bunny Hop")
+    print("  - Visuals: ESP, Wallhack, Chams, Name ESP, Tracers")
+    print("  - Combat: God Mode, Aimbot, Kill Aura, Spin Bot, Auto Click")
+    print("  - Misc: Auto Farm, Teleport, Kill All, Anti-Cheat Bypass")
     
     local success = pcall(function()
-        CommandUI:create_command_bar()
+        CommandUI:create_ui()
     end)
     if not success then
         warn("Failed to create GUI. Using console-only mode.")
     else
-        print("✅ GUI loaded successfully!")
+        print("✅ Fishy's UI loaded successfully!")
     end
     
     return {
@@ -1292,9 +1618,12 @@ local function initialize_executor()
         god = function() return Hacks:god_mode() end,
         noclip = function() return Hacks:no_clip() end,
         teleport = function(pos) return Hacks:teleport(pos) end,
-        load_script = function(source) return ScriptLoader:load_from_string(source) end,
-        load_url = function(url) return ScriptLoader:load_from_url(url) end,
-        load_file = function(path) return ScriptLoader:load_from_file(path) end,
+        aimbot = function() return Hacks:aimbot() end,
+        kill_aura = function(radius) return Hacks:kill_aura(radius) end,
+        auto_farm = function() return Hacks:auto_farm() end,
+        wallhack = function() return Hacks:wallhack() end,
+        bunny_hop = function() return Hacks:bunny_hop() end,
+        infinite_jump = function() return Hacks:infinite_jump() end,
     }
 end
 
@@ -1302,16 +1631,15 @@ end
 local executor = initialize_executor()
 
 print("\n" .. string.rep("=", 50))
-print("🎮 EXECUTOR USAGE")
+print("🎮 Fishy's Collection")
 print(string.rep("=", 50))
-print("1. 💻 GUI: Opens automatically with 4 tabs")
-print("   - Main: Script execution with input/output")
-print("   - Hacks: Quick hack buttons")
-print("   - Duplication: Duplicate various items")
-print("   - Settings: Anti-detection tools")
-print("2. ⌨️ Commands: Type '/' in the input box")
-print("3. 🚀 Quick buttons: Click any button to activate")
-print("4. 📝 Type /help for full command list")
+print("1. 💻 GUI opens automatically with tabs:")
+print("   - MOVEMENT: Fly, Speed, Infinite Jump, etc.")
+print("   - VISUALS: ESP, Wallhack, Chams, etc.")
+print("   - COMBAT: God Mode, Aimbot, Kill Aura, etc.")
+print("   - MISC: Auto Farm, Teleport, Kill All, etc.")
+print("2. 🔘 Click toggles to enable/disable hacks")
+print("3. 🎯 All toggles are interactive with visual feedback")
 print(string.rep("=", 50))
 
 return executor
