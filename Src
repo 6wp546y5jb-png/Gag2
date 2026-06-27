@@ -1,25 +1,26 @@
 --[[
     ============================================
-    KURBY HUB - COMPLETE UI WITH ALL FEATURES (FIXED)
+    KURBY HUB - COMPLETE UI WITH ALL FEATURES (FIXED COLORS)
     ============================================
 ]]
 
 -- ============================================
--- SECTION 1: THEME & UI COMPONENTS
+-- SECTION 1: THEME & UI COMPONENTS (BRIGHTER)
 -- ============================================
 
 local Theme = {
-    Background = Color3.fromRGB(16,16,16),
-    Sidebar = Color3.fromRGB(22,22,22),
-    Card = Color3.fromRGB(28,28,28),
-    Accent = Color3.fromRGB(115,255,70),
-    AccentRed = Color3.fromRGB(255,70,70),
-    AccentBlue = Color3.fromRGB(70,150,255),
-    AccentYellow = Color3.fromRGB(255,200,50),
-    AccentPurple = Color3.fromRGB(150,50,255),
-    Secondary = Color3.fromRGB(45,45,45),
-    Border = Color3.fromRGB(45,45,45),
-    Text = Color3.fromRGB(240,240,240)
+    Background = Color3.fromRGB(30,30,35),      -- Dark but not black
+    Sidebar = Color3.fromRGB(40,40,45),         -- Slightly lighter
+    Card = Color3.fromRGB(45,45,50),            -- Visible cards
+    Accent = Color3.fromRGB(0,200,255),         -- Bright cyan
+    AccentRed = Color3.fromRGB(255,80,80),      -- Bright red
+    AccentBlue = Color3.fromRGB(80,160,255),    -- Bright blue
+    AccentYellow = Color3.fromRGB(255,210,50),  -- Bright yellow
+    AccentPurple = Color3.fromRGB(180,80,255),  -- Bright purple
+    Secondary = Color3.fromRGB(60,60,65),       -- For toggle backgrounds
+    Border = Color3.fromRGB(70,70,75),          -- Visible borders
+    Text = Color3.fromRGB(255,255,255),         -- Pure white text
+    TextDim = Color3.fromRGB(180,180,180)       -- Dimmer text
 }
 
 local function Create(class,props,parent)
@@ -1289,7 +1290,7 @@ local Gui = Create("ScreenGui",{
     ZIndexBehavior=Enum.ZIndexBehavior.Sibling
 },LocalPlayer.PlayerGui)
 
--- Main Frame
+-- Main Frame (with background for visibility)
 local Main = Create("Frame",{
     AnchorPoint=Vector2.new(.5,.5),
     Position=UDim2.fromScale(.5,.5),
@@ -1304,6 +1305,21 @@ local Main = Create("Frame",{
 Corner(Main,14)
 Stroke(Main)
 
+-- Add a subtle glow/outline effect
+local Glow = Create("Frame",{
+    Size=UDim2.fromOffset(764,474),
+    Position=UDim2.fromOffset(-2,-2),
+    BackgroundTransparency=1,
+    BorderSizePixel=0,
+    Parent=Main
+})
+Create("UIStroke",{
+    Color=Color3.fromRGB(0,200,255),
+    Thickness=2,
+    Transparency=0.3
+},Glow)
+Corner(Glow,16)
+
 -- Sidebar (decorative)
 local Sidebar = Create("Frame",{
     Size=UDim2.fromOffset(70,470),
@@ -1311,6 +1327,19 @@ local Sidebar = Create("Frame",{
     BorderSizePixel=0
 },Main)
 Corner(Sidebar,14)
+
+-- Add sidebar icon
+Create("TextLabel",{
+    Position=UDim2.new(.5,.5),
+    AnchorPoint=Vector2.new(.5,.5),
+    Size=UDim2.fromOffset(40,40),
+    BackgroundTransparency=1,
+    Text="⚡",
+    TextColor3=Theme.Accent,
+    Font=Enum.Font.GothamBold,
+    TextSize=30,
+    Parent=Sidebar
+})
 
 -- Header (for dragging)
 local Header = Create("Frame",{
@@ -1321,6 +1350,15 @@ local Header = Create("Frame",{
     BorderSizePixel=0,
     ZIndex=10
 },Main)
+
+-- Add a subtle divider line under header
+Create("Frame",{
+    Position=UDim2.new(0,0,1,0),
+    Size=UDim2.new(1,0,0,1),
+    BackgroundColor3=Theme.Border,
+    BorderSizePixel=0,
+    Parent=Header
+})
 
 -- Content Area
 local Content = Create("ScrollingFrame",{
@@ -1355,7 +1393,7 @@ Create("TextLabel",{
     Size=UDim2.new(0,70,1,0),
     BackgroundTransparency=1,
     Text="v"..Executor.version,
-    TextColor3=Color3.fromRGB(100,100,100),
+    TextColor3=Theme.TextDim,
     Font=Enum.Font.Gotham,
     TextSize=12,
     TextXAlignment=Enum.TextXAlignment.Right,
@@ -1609,7 +1647,7 @@ local function Button(Row, text, callback)
 
     B.MouseEnter:Connect(function()
         TweenService:Create(B,TweenInfo.new(.15),{
-            BackgroundColor3 = Color3.fromRGB(135,255,90)
+            BackgroundColor3 = Color3.fromRGB(50,210,255)
         }):Play()
     end)
 
