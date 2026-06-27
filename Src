@@ -1,6 +1,6 @@
 --[[
     ============================================
-    KURBY HUB - COMPLETE UI WITH ALL FEATURES
+    KURBY HUB - COMPLETE UI WITH ALL FEATURES (FIXED)
     ============================================
 ]]
 
@@ -1191,8 +1191,7 @@ function Hacks:air_move()
                         move_dir = move_dir - hrp.CFrame.RightVector
                     end
                     if UIS:IsKeyDown(Enum.KeyCode.D) then
-                        move_dir = move_dir + hrp.CFrame.RightVector
-                    end
+                        move_dir = move_dir + hrp.CFrame.RightVector                    end
                     
                     if move_dir.Magnitude > 0 then
                         hrp.Velocity = Vector3.new(move_dir.Unit.X * 30, hrp.Velocity.Y, move_dir.Unit.Z * 30)
@@ -1269,13 +1268,6 @@ function AntiDetection:initialize()
                         end
                     end
                 end
-                
-                -- Spoof client
-                local network = game:GetService("NetworkClient")
-                network:SetVersion("0.0.0")
-                
-                local stats = game:GetService("Stats")
-                stats:SetPing(0)
             end)
             task.wait(5)
         end
@@ -1293,7 +1285,8 @@ end
 local Gui = Create("ScreenGui",{
     Name="KurbyHub",
     ResetOnSpawn=false,
-    IgnoreGuiInset=true
+    IgnoreGuiInset=true,
+    ZIndexBehavior=Enum.ZIndexBehavior.Sibling
 },LocalPlayer.PlayerGui)
 
 -- Main Frame
@@ -1304,13 +1297,14 @@ local Main = Create("Frame",{
     BackgroundColor3=Theme.Background,
     BorderSizePixel=0,
     Visible=true,
-    Active=true
+    Active=true,
+    ClipsDescendants=false
 },Gui)
 
 Corner(Main,14)
 Stroke(Main)
 
--- Sidebar
+-- Sidebar (decorative)
 local Sidebar = Create("Frame",{
     Size=UDim2.fromOffset(70,470),
     BackgroundColor3=Theme.Sidebar,
@@ -1337,7 +1331,10 @@ local Content = Create("ScrollingFrame",{
     ScrollBarThickness=4,
     CanvasSize=UDim2.new(0,0,0,0),
     BorderSizePixel=0,
-    ClipsDescendants=true
+    ClipsDescendants=true,
+    ScrollBarImageColor3=Theme.Accent,
+    ScrollBarImageTransparency=0.3,
+    BottomImage=Color3.fromRGB(0,0,0)
 },Main)
 
 -- Title text
@@ -1350,6 +1347,18 @@ Create("TextLabel",{
     Font=Enum.Font.GothamBold,
     TextSize=22,
     TextXAlignment=Enum.TextXAlignment.Left,
+    Parent=Header
+})
+
+Create("TextLabel",{
+    Position=UDim2.new(1,-80,0,0),
+    Size=UDim2.new(0,70,1,0),
+    BackgroundTransparency=1,
+    Text="v"..Executor.version,
+    TextColor3=Color3.fromRGB(100,100,100),
+    Font=Enum.Font.Gotham,
+    TextSize=12,
+    TextXAlignment=Enum.TextXAlignment.Right,
     Parent=Header
 })
 
@@ -1759,42 +1768,6 @@ local function Dropdown(Row, options, default_index, callback)
     return function() return Label.Text end
 end
 
-local function Keybind(Row, callback)
-    local Box = Create("TextButton",{
-        AnchorPoint = Vector2.new(1,.5),
-        Position = UDim2.new(1,0,.5,0),
-        Size = UDim2.new(0,70,0,28),
-        BackgroundColor3 = Theme.Secondary,
-        Text = "None",
-        TextColor3 = Theme.Text,
-        BorderSizePixel = 0,
-        Parent = Row
-    })
-
-    Corner(Box,8)
-    Stroke(Box)
-    
-    local listening = false
-    
-    Box.MouseButton1Click:Connect(function()
-        listening = true
-        Box.Text = "Press key..."
-        Box.BackgroundColor3 = Theme.Accent
-    end)
-    
-    UIS.InputBegan:Connect(function(input)
-        if listening and input.UserInputType == Enum.UserInputType.Keyboard then
-            local key = input.KeyCode.Name
-            Box.Text = key
-            Box.BackgroundColor3 = Theme.Secondary
-            listening = false
-            if callback then callback(key) end
-        end
-    end)
-    
-    return Box
-end
-
 -- ============================================
 -- SECTION 8: BUILD UI CARDS
 -- ============================================
@@ -1831,9 +1804,9 @@ local dirjump_row, dirjump_label = CreateRow(MovementCard)
 dirjump_label.Text = "🔄 Directional Jump"
 Toggle(dirjump_row, function() return Hacks:directional_jump() end, Theme.AccentPurple)
 
-local antifatl_row, antifall_label = CreateRow(MovementCard)
+local antifall_row, antifall_label = CreateRow(MovementCard)
 antifall_label.Text = "🛑 Anti-Fall"
-Toggle(antifatl_row, function() return Hacks:anti_fall() end, Theme.Accent)
+Toggle(antifall_row, function() return Hacks:anti_fall() end, Theme.Accent)
 
 -- VISUAL CARD
 local VisualCard = CreateCard()
@@ -2033,7 +2006,17 @@ TweenService:Create(
 ):Play()
 
 -- ============================================
--- SECTION 11: INITIALIZATION
+-- SECTION 11: KEYBIND TO TOGGLE UI
+-- ============================================
+
+UIS.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.RightControl then
+        Main.Visible = not Main.Visible
+    end
+end)
+
+-- ============================================
+-- SECTION 12: INITIALIZATION
 -- ============================================
 
 -- Start anti-detection
@@ -2042,6 +2025,7 @@ AntiDetection:initialize()
 print("⚡ KurbyHub v" .. Executor.version .. " loaded successfully!")
 print("🛡 Anti-Cheat bypass enabled by default!")
 print("📋 Drag the header to move the window")
+print("⌨️ Press RightControl to toggle the UI")
 print("\n📋 Features Available:")
 
 local features = {
