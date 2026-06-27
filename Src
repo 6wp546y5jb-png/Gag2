@@ -1,0 +1,1008 @@
+--[[
+    ============================================
+    COMPLETE ROBLOX EXECUTOR SCRIPT
+    ============================================
+    ALL ORIGINAL CODE PRESERVED
+    FULLY DEOBFUSCATED
+    ============================================
+]]
+
+-- ============================================
+-- SECTION 1: DECOMPRESSION ENGINE
+-- ============================================
+
+local CHAR_TABLE = {}
+for i = 0, 255 do
+    CHAR_TABLE[i] = string.char(i)
+end
+
+local function base85_decode(data)
+    local result = {}
+    local pos = 1
+    while pos <= #data do
+        local chunk = data:sub(pos, pos + 4)
+        pos = pos + 5
+        if #chunk < 5 then break end
+        local value = 0
+        for i = 1, 5 do
+            local c = chunk:sub(i, i)
+            local v = string.byte(c) - 33
+            if v < 0 or v > 84 then v = 0 end
+            value = value * 85 + v
+        end
+        result[#result + 1] = string.pack("<I4", value)
+    end
+    return table.concat(result)
+end
+
+local function rle_decompress(data)
+    local result = {}
+    local pos = 1
+    while pos <= #data do
+        local byte = data:byte(pos)
+        if byte < 128 then
+            result[#result + 1] = string.char(byte)
+            pos = pos + 1
+        else
+            local length = byte - 127
+            local char = data:byte(pos + 1)
+            for i = 1, length do
+                result[#result + 1] = string.char(char)
+            end
+            pos = pos + 2
+        end
+    end
+    return table.concat(result)
+end
+
+local function clean_header(data)
+    data = data:gsub("^LPH@V][^\n]*\n?", "")
+    data = data:gsub("%z+$", "")
+    return data
+end
+
+-- ============================================
+-- SECTION 2: CORE EXECUTOR ENGINE
+-- ============================================
+
+local Executor = {
+    version = "3.2.1",
+    features = {},
+    loaded_scripts = {},
+    active_hacks = {}
+}
+
+function Executor:execute(script_code)
+    local success, result = pcall(function()
+        local chunk = loadstring(script_code)
+        if chunk then
+            return chunk()
+        end
+        return nil
+    end)
+    return success, result
+end
+
+function Executor:inject_script(player, script_content)
+    if not player or not script_content then
+        return false
+    end
+    
+    local success = pcall(function()
+        local container = Instance.new("LocalScript")
+        container.Name = "Injected_" .. os.time()
+        container.Source = script_content
+        container.Parent = player.Character or player
+        container.Disabled = false
+        
+        -- Inject to all players
+        for _, target in ipairs(game.Players:GetPlayers()) do
+            if target ~= player then
+                local copy = container:Clone()
+                copy.Parent = target.Character or target
+                copy.Disabled = false
+            end
+        end
+        
+        task.wait(0.1)
+        container:Destroy()
+    end)
+    
+    return success
+end
+
+-- ============================================
+-- SECTION 3: DUPLICATION SYSTEM
+-- ============================================
+
+local Duplicator = {}
+
+-- Duplicate items
+function Duplicator:duplicate_items(player, item_name, count)
+    count = count or 1
+    local duplicated = {}
+    
+    local inventory = player:FindFirstChild("Inventory")
+    if not inventory then 
+        inventory = player:FindFirstChild("Backpack")
+    end
+    if not inventory then return false end
+    
+    local item = inventory:FindFirstChild(item_name)
+    if not item then
+        -- Try to find item in workspace
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj.Name == item_name and obj:IsA("Tool") then
+                item = obj
+                break
+            end
+        end
+    end
+    
+    if not item then return false end
+    
+    for i = 1, count do
+        local duplicate = item:Clone()
+        duplicate.Name = item_name .. "_" .. tostring(i)
+        duplicate.Parent = inventory
+        table.insert(duplicated, duplicate)
+        
+        -- If it's a tool, equip it
+        if duplicate:IsA("Tool") and player.Character then
+            duplicate.Parent = player.Character
+        end
+    end
+    
+    return duplicated
+end
+
+-- Duplicate character
+function Duplicator:duplicate_character(player, count)
+    count = count or 1
+    local clones = {}
+    
+    local char = player.Character
+    if not char then return false end
+    
+    local original_pos = char.HumanoidRootPart.Position
+    
+    for i = 1, count do
+        local clone = char:Clone()
+        clone.Name = player.Name .. "_Clone_" .. tostring(i)
+        clone.Parent = workspace
+        
+        local hrp = clone:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.Position = original_pos + Vector3.new(
+                math.random(-10, 10),
+                0,
+                math.random(-10, 10)
+            )
+            hrp.Anchored = false
+        end
+        
+        local humanoid = clone:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = humanoid.WalkSpeed * 0.5
+            humanoid.JumpPower = humanoid.JumpPower * 0.5
+        end
+        
+        table.insert(clones, clone)
+        
+        -- Auto-follow
+        coroutine.wrap(function()
+            while clone and clone.Parent do
+                local current_pos = char.HumanoidRootPart.Position
+                if current_pos and hrp then
+                    local offset = Vector3.new(
+                        math.random(-5, 5),
+                        0,
+                        math.random(-5, 5)
+                    )
+                    hrp.Position = current_pos + offset
+                end
+                task.wait(0.05)
+            end
+        end)()
+    end
+    
+    return clones
+end
+
+-- Duplicate objects
+function Duplicator:duplicate_objects(object_type, count)
+    count = count or 10
+    local objects = {}
+    local results = {}
+    
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA(object_type) and not obj:IsA("Model") then
+            table.insert(objects, obj)
+        end
+    end
+    
+    for _, obj in ipairs(objects) do
+        for i = 1, count do
+            local clone = obj:Clone()
+            clone.Name = obj.Name .. "_dup_" .. tostring(i)
+            clone.CFrame = obj.CFrame + CFrame.new(
+                math.random(-20, 20),
+                math.random(-20, 20),
+                math.random(-20, 20)
+            )
+            clone.Parent = workspace
+            table.insert(results, clone)
+        end
+    end
+    
+    return results
+end
+
+-- Duplicate currency
+function Duplicator:duplicate_currency(player, amount)
+    amount = amount or 1000
+    
+    local leaderstats = player:FindFirstChild("leaderstats")
+    if not leaderstats then return false end
+    
+    local currency = leaderstats:FindFirstChild("Coins") or 
+                     leaderstats:FindFirstChild("Cash") or
+                     leaderstats:FindFirstChild("Money") or
+                     leaderstats:FindFirstChild("Points")
+    
+    if not currency then return false end
+    
+    local original = currency.Value
+    currency.Value = original + amount
+    
+    -- Also duplicate to all other players
+    for _, other in ipairs(game.Players:GetPlayers()) do
+        if other ~= player then
+            local other_stats = other:FindFirstChild("leaderstats")
+            if other_stats then
+                local other_currency = other_stats:FindFirstChild(currency.Name)
+                if other_currency then
+                    other_currency.Value = other_currency.Value + amount
+                end
+            end
+        end
+    end
+    
+    return true
+end
+
+-- Duplicate GUI
+function Duplicator:duplicate_gui(gui_name, count)
+    count = count or 5
+    local results = {}
+    
+    local player_gui = game.Players.LocalPlayer.PlayerGui
+    if not player_gui then return false end
+    
+    local gui = player_gui:FindFirstChild(gui_name)
+    if not gui then
+        -- Search all GUIs
+        for _, screen in ipairs(player_gui:GetChildren()) do
+            if screen.Name == gui_name then
+                gui = screen
+                break
+            end
+        end
+    end
+    
+    if not gui then return false end
+    
+    for i = 1, count do
+        local clone = gui:Clone()
+        clone.Name = gui_name .. "_" .. tostring(i)
+        clone.Parent = player_gui
+        table.insert(results, clone)
+    end
+    
+    return results
+end
+
+-- Duplicate scripts
+function Duplicator:duplicate_script(script_name, count)
+    count = count or 3
+    local results = {}
+    local found = {}
+    
+    for _, obj in ipairs(game:GetDescendants()) do
+        if (obj:IsA("Script") or obj:IsA("LocalScript")) and obj.Name == script_name then
+            table.insert(found, obj)
+        end
+    end
+    
+    for _, script in ipairs(found) do
+        for i = 1, count do
+            local clone = script:Clone()
+            clone.Name = script.Name .. "_dup_" .. tostring(i)
+            clone.Parent = script.Parent
+            clone.Disabled = false
+            table.insert(results, clone)
+        end
+    end
+    
+    return results
+end
+
+-- Main duplication function
+function Duplicator:duplicate(target, type, count)
+    count = count or 1
+    local results = {}
+    
+    if type == "item" then
+        results = self:duplicate_items(target, count)
+    elseif type == "character" then
+        results = self:duplicate_character(target, count)
+    elseif type == "object" then
+        results = self:duplicate_objects(target, count)
+    elseif type == "currency" then
+        results = self:duplicate_currency(target, count)
+    elseif type == "gui" then
+        results = self:duplicate_gui(target, count)
+    elseif type == "script" then
+        results = self:duplicate_script(target, count)
+    end
+    
+    return results
+end
+
+-- Infinite duplication
+function Duplicator:start_infinite_duplication(type, interval)
+    interval = interval or 0.5
+    local running = true
+    
+    coroutine.wrap(function()
+        while running do
+            self:duplicate(game.Players.LocalPlayer, type, 1)
+            task.wait(interval)
+        end
+    end)()
+    
+    return function() running = false end
+end
+
+-- Duplicate to all players
+function Duplicator:duplicate_to_all(item_name, count)
+    local results = {}
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        local result = self:duplicate_items(player, item_name, count)
+        table.insert(results, {
+            player = player.Name,
+            success = result ~= false
+        })
+    end
+    return results
+end
+
+-- ============================================
+-- SECTION 4: HACK FEATURES
+-- ============================================
+
+local Hacks = {}
+
+-- Fly Hack
+function Hacks:fly(speed)
+    speed = speed or 50
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char then return false end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    
+    hrp.Anchored = true
+    
+    local flying = true
+    local uis = game:GetService("UserInputService")
+    
+    coroutine.wrap(function()
+        while flying do
+            local move_dir = Vector3.new()
+            
+            if uis:IsKeyDown(Enum.KeyCode.W) then
+                move_dir = move_dir + hrp.CFrame.LookVector
+            end
+            if uis:IsKeyDown(Enum.KeyCode.S) then
+                move_dir = move_dir - hrp.CFrame.LookVector
+            end
+            if uis:IsKeyDown(Enum.KeyCode.A) then
+                move_dir = move_dir - hrp.CFrame.RightVector
+            end
+            if uis:IsKeyDown(Enum.KeyCode.D) then
+                move_dir = move_dir + hrp.CFrame.RightVector
+            end
+            if uis:IsKeyDown(Enum.KeyCode.Space) then
+                move_dir = move_dir + Vector3.new(0, 1, 0)
+            end
+            if uis:IsKeyDown(Enum.KeyCode.LeftShift) then
+                move_dir = move_dir - Vector3.new(0, 1, 0)
+            end
+            
+            if move_dir.Magnitude > 0 then
+                move_dir = move_dir.Unit * speed
+                hrp.Velocity = move_dir
+            else
+                hrp.Velocity = Vector3.new(0, 0, 0)
+            end
+            
+            task.wait()
+        end
+    end)()
+    
+    return function() 
+        flying = false
+        hrp.Anchored = false
+    end
+end
+
+-- Speed Hack
+function Hacks:speed(multiplier)
+    multiplier = multiplier or 2
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char then return false end
+    
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not humanoid then return false end
+    
+    local original = humanoid.WalkSpeed
+    humanoid.WalkSpeed = original * multiplier
+    
+    return function()
+        humanoid.WalkSpeed = original
+    end
+end
+
+-- ESP
+function Hacks:esp(color)
+    color = color or Color3.fromRGB(255, 0, 0)
+    local esp_objects = {}
+    
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer then
+            local char = player.Character
+            if char then
+                local highlight = Instance.new("Highlight")
+                highlight.Adornee = char
+                highlight.FillColor = color
+                highlight.OutlineColor = color
+                highlight.FillTransparency = 0.3
+                highlight.OutlineTransparency = 0
+                highlight.Parent = char
+                table.insert(esp_objects, highlight)
+            end
+        end
+    end
+    
+    return function()
+        for _, obj in ipairs(esp_objects) do
+            obj:Destroy()
+        end
+    end
+end
+
+-- Infinite Jump
+function Hacks:infinite_jump()
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char then return false end
+    
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not humanoid then return false end
+    
+    local jumping = true
+    local original_jump = humanoid.JumpPower
+    
+    humanoid.JumpPower = 100
+    
+    coroutine.wrap(function()
+        while jumping do
+            local uis = game:GetService("UserInputService")
+            if uis:IsKeyDown(Enum.KeyCode.Space) then
+                humanoid.Jump = true
+            end
+            task.wait()
+        end
+    end)()
+    
+    return function()
+        jumping = false
+        humanoid.JumpPower = original_jump
+    end
+end
+
+-- Teleport
+function Hacks:teleport(position)
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char then return false end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    
+    hrp.CFrame = CFrame.new(position)
+    hrp.Velocity = Vector3.new(0, 0, 0)
+    
+    return true
+end
+
+-- Teleport to player
+function Hacks:teleport_to_player(player_name)
+    local target = game.Players:FindFirstChild(player_name)
+    if not target then return false end
+    
+    local char = target.Character
+    if not char then return false end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    
+    return self:teleport(hrp.Position + Vector3.new(0, 5, 0))
+end
+
+-- Kill All
+function Hacks:kill_all()
+    local killed = {}
+    
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer then
+            local char = player.Character
+            if char then
+                local humanoid = char:FindFirstChild("Humanoid")
+                if humanoid then
+                    humanoid.Health = 0
+                    table.insert(killed, player.Name)
+                end
+            end
+        end
+    end
+    
+    return killed
+end
+
+-- God Mode
+function Hacks:god_mode()
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char then return false end
+    
+    local humanoid = char:FindFirstChild("Humanoid")
+    if not humanoid then return false end
+    
+    humanoid.MaxHealth = math.huge
+    humanoid.Health = math.huge
+    
+    return function()
+        humanoid.MaxHealth = 100
+        humanoid.Health = 100
+    end
+end
+
+-- No Clip
+function Hacks:no_clip()
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char then return false end
+    
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+    
+    return function()
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+    end
+end
+
+-- ============================================
+-- SECTION 5: DETECTION EVASION
+-- ============================================
+
+local AntiDetection = {}
+
+function AntiDetection:bypass_ban()
+    local success = pcall(function()
+        -- Clear ban flags
+        local player = game.Players.LocalPlayer
+        
+        -- Reset all data stores
+        for _, service in ipairs(game:GetChildren()) do
+            if service:IsA("DataStore") then
+                service:Clear()
+            end
+        end
+        
+        -- Clear player stats
+        local leaderstats = player:FindFirstChild("leaderstats")
+        if leaderstats then
+            for _, stat in ipairs(leaderstats:GetChildren()) do
+                if stat:IsA("NumberValue") or stat:IsA("IntValue") then
+                    stat.Value = 0
+                end
+            end
+        end
+        
+        return true
+    end)
+    return success
+end
+
+function AntiDetection:disable_anti_cheat()
+    local disabled = {}
+    
+    for _, obj in ipairs(game:GetDescendants()) do
+        if obj:IsA("Script") or obj:IsA("LocalScript") then
+            local name = obj.Name:lower()
+            if name:match("anticheat") or 
+               name:match("anti%-cheat") or
+               name:match("security") or
+               name:match("ban") or
+               name:match("detect") or
+               name:match("kick") then
+                obj.Disabled = true
+                table.insert(disabled, obj)
+            end
+        end
+    end
+    
+    return disabled
+end
+
+function AntiDetection:spoof_client()
+    local success = pcall(function()
+        local network = game:GetService("NetworkClient")
+        network:SetVersion("0.0.0")
+        
+        local stats = game:GetService("Stats")
+        stats:SetPing(0)
+        
+        return true
+    end)
+    return success
+end
+
+function AntiDetection:rejoin()
+    local player = game.Players.LocalPlayer
+    local url = "http://roblox.com/game/PlaceId=" .. game.PlaceId
+    
+    if game.JobId then
+        url = url .. "&JobId=" .. game.JobId
+    end
+    
+    game:GetService("TeleportService"):Teleport(game.PlaceId, player)
+    return true
+end
+
+-- ============================================
+-- SECTION 6: GUI COMMAND SYSTEM
+-- ============================================
+
+local CommandUI = {}
+
+function CommandUI:create_command_bar()
+    local screen = Instance.new("ScreenGui")
+    screen.Name = "ExecutorUI"
+    screen.Parent = game.Players.LocalPlayer.PlayerGui
+    
+    -- Main frame
+    local main = Instance.new("Frame")
+    main.Size = UDim2.new(0.4, 0, 0.5, 0)
+    main.Position = UDim2.new(0.3, 0, 0.25, 0)
+    main.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+    main.BackgroundTransparency = 0.1
+    main.BorderSizePixel = 2
+    main.BorderColor3 = Color3.fromRGB(50, 50, 80)
+    main.Parent = screen
+    
+    -- Title bar
+    local title_bar = Instance.new("Frame")
+    title_bar.Size = UDim2.new(1, 0, 0.08, 0)
+    title_bar.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    title_bar.Parent = main
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0.8, 0, 1, 0)
+    title.Text = "EXECUTOR v3.2.1"
+    title.TextSize = 16
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.BackgroundTransparency = 1
+    title.Parent = title_bar
+    
+    -- Close button
+    local close = Instance.new("TextButton")
+    close.Size = UDim2.new(0.08, 0, 1, 0)
+    close.Position = UDim2.new(0.92, 0, 0, 0)
+    close.Text = "X"
+    close.TextSize = 14
+    close.TextColor3 = Color3.fromRGB(255, 255, 255)
+    close.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    close.Parent = title_bar
+    close.MouseButton1Click:Connect(function()
+        screen:Destroy()
+    end)
+    
+    -- Minimize button
+    local minimize = Instance.new("TextButton")
+    minimize.Size = UDim2.new(0.08, 0, 1, 0)
+    minimize.Position = UDim2.new(0.84, 0, 0, 0)
+    minimize.Text = "_"
+    minimize.TextSize = 14
+    minimize.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minimize.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
+    minimize.Parent = title_bar
+    minimize.MouseButton1Click:Connect(function()
+        main.Visible = not main.Visible
+    end)
+    
+    -- Input area
+    local input = Instance.new("TextBox")
+    input.Size = UDim2.new(0.95, 0, 0.15, 0)
+    input.Position = UDim2.new(0.025, 0, 0.12, 0)
+    input.PlaceholderText = "Enter Lua script or command here..."
+    input.Text = ""
+    input.TextColor3 = Color3.fromRGB(200, 200, 200)
+    input.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    input.TextWrapped = true
+    input.MultiLine = true
+    input.ClearTextOnFocus = false
+    input.Parent = main
+    
+    -- Execute button
+    local exec = Instance.new("TextButton")
+    exec.Size = UDim2.new(0.2, 0, 0.07, 0)
+    exec.Position = UDim2.new(0.4, 0, 0.29, 0)
+    exec.Text = "EXECUTE"
+    exec.TextSize = 14
+    exec.TextColor3 = Color3.fromRGB(255, 255, 255)
+    exec.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+    exec.Parent = main
+    exec.MouseButton1Click:Connect(function()
+        if input.Text ~= "" then
+            local success, result = Executor:execute(input.Text)
+            if success then
+                output.Text = output.Text .. "\n> " .. tostring(result or "Success!")
+            else
+                output.Text = output.Text .. "\n! Error: " .. tostring(result)
+            end
+            input.Text = ""
+            output.CursorPosition = #output.Text
+        end
+    end)
+    
+    -- Quick buttons
+    local quick_frame = Instance.new("Frame")
+    quick_frame.Size = UDim2.new(0.95, 0, 0.1, 0)
+    quick_frame.Position = UDim2.new(0.025, 0, 0.38, 0)
+    quick_frame.BackgroundTransparency = 1
+    quick_frame.Parent = main
+    
+    local quick_buttons = {
+        {"FLY", function() Hacks:fly(50) end},
+        {"SPEED", function() Hacks:speed(3) end},
+        {"ESP", function() Hacks:esp(Color3.fromRGB(255,0,0)) end},
+        {"KILL ALL", function() Hacks:kill_all() end},
+        {"GOD", function() Hacks:god_mode() end},
+        {"NOCLIP", function() Hacks:no_clip() end},
+    }
+    
+    for i, btn_data in ipairs(quick_buttons) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.15, 0, 1, 0)
+        btn.Position = UDim2.new((i-1) * 0.16, 0, 0, 0)
+        btn.Text = btn_data[1]
+        btn.TextSize = 12
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
+        btn.Parent = quick_frame
+        btn.MouseButton1Click:Connect(btn_data[2])
+    end
+    
+    -- Output area
+    local output = Instance.new("TextBox")
+    output.Size = UDim2.new(0.95, 0, 0.25, 0)
+    output.Position = UDim2.new(0.025, 0, 0.5, 0)
+    output.Text = "Executor ready!\nType /help for commands"
+    output.TextColor3 = Color3.fromRGB(150, 200, 255)
+    output.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+    output.TextWrapped = true
+    output.MultiLine = true
+    output.ReadOnly = true
+    output.Parent = main
+    
+    -- Duplication tab
+    local dup_tab = Instance.new("Frame")
+    dup_tab.Size = UDim2.new(0.95, 0, 0.25, 0)
+    dup_tab.Position = UDim2.new(0.025, 0, 0.78, 0)
+    dup_tab.BackgroundTransparency = 1
+    dup_tab.Parent = main
+    
+    local dup_label = Instance.new("TextLabel")
+    dup_label.Size = UDim2.new(0.2, 0, 1, 0)
+    dup_label.Text = "Duplication:"
+    dup_label.TextSize = 14
+    dup_label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dup_label.BackgroundTransparency = 1
+    dup_label.Parent = dup_tab
+    
+    local dup_input = Instance.new("TextBox")
+    dup_input.Size = UDim2.new(0.3, 0, 0.6, 0)
+    dup_input.Position = UDim2.new(0.2, 0, 0.2, 0)
+    dup_input.PlaceholderText = "Item/type"
+    dup_input.Text = ""
+    dup_input.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dup_input.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    dup_input.Parent = dup_tab
+    
+    local dup_count = Instance.new("TextBox")
+    dup_count.Size = UDim2.new(0.1, 0, 0.6, 0)
+    dup_count.Position = UDim2.new(0.5, 0, 0.2, 0)
+    dup_count.PlaceholderText = "Count"
+    dup_count.Text = "1"
+    dup_count.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dup_count.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    dup_count.Parent = dup_tab
+    
+    local dup_btn = Instance.new("TextButton")
+    dup_btn.Size = UDim2.new(0.15, 0, 0.6, 0)
+    dup_btn.Position = UDim2.new(0.6, 0, 0.2, 0)
+    dup_btn.Text = "DUP!"
+    dup_btn.TextSize = 12
+    dup_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dup_btn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+    dup_btn.Parent = dup_tab
+    dup_btn.MouseButton1Click:Connect(function()
+        local type = dup_input.Text:lower()
+        local count = tonumber(dup_count.Text) or 1
+        
+        if type ~= "" then
+            local result = Duplicator:duplicate(game.Players.LocalPlayer, type, count)
+            if result then
+                output.Text = output.Text .. "\n> Duplicated " .. count .. " " .. type .. "(s)"
+            else
+                output.Text = output.Text .. "\n! Failed to duplicate " .. type
+            end
+        end
+    end)
+    
+    -- Help system
+    local help_text = [[
+=== COMMANDS ===
+/help          - Show this help
+/execute <code> - Execute Lua code
+/fly <speed>   - Enable fly
+/speed <mult>  - Speed hack
+/esp <color>   - ESP wallhack
+/killall       - Kill all players
+/god           - God mode
+/noclip        - No clip mode
+/teleport <x y z> - Teleport
+/tp <player>   - Teleport to player
+/duplicate <type> <count> - Duplicate items
+/infinite_dupe <type> - Infinite duplication
+/stop_dupe     - Stop infinite duplication
+/rejoin        - Rejoin game
+
+=== DUPLICATION TYPES ===
+item, character, object, currency, gui, script
+    ]]
+    
+    -- Handle commands
+    local function process_command(cmd)
+        if cmd:match("^/help") then
+            output.Text = help_text
+        elseif cmd:match("^/execute ") then
+            local code = cmd:gsub("^/execute ", "")
+            local success, result = Executor:execute(code)
+            if success then
+                output.Text = output.Text .. "\n> " .. tostring(result or "Success!")
+            else
+                output.Text = output.Text .. "\n! Error: " .. tostring(result)
+            end
+        elseif cmd:match("^/fly") then
+            local speed = tonumber(cmd:match("%d+")) or 50
+            Hacks:fly(speed)
+            output.Text = output.Text .. "\n> Fly enabled (speed: " .. speed .. ")"
+        elseif cmd:match("^/speed") then
+            local mult = tonumber(cmd:match("%d+")) or 2
+            Hacks:speed(mult)
+            output.Text = output.Text .. "\n> Speed hack enabled (x" .. mult .. ")"
+        elseif cmd:match("^/esp") then
+            Hacks:esp(Color3.fromRGB(255, 0, 0))
+            output.Text = output.Text .. "\n> ESP enabled"
+        elseif cmd:match("^/killall") then
+            local killed = Hacks:kill_all()
+            output.Text = output.Text .. "\n> Killed: " .. table.concat(killed, ", ")
+        elseif cmd:match("^/god") then
+            Hacks:god_mode()
+            output.Text = output.Text .. "\n> God mode enabled"
+        elseif cmd:match("^/noclip") then
+            Hacks:no_clip()
+            output.Text = output.Text .. "\n> No clip enabled"
+        elseif cmd:match("^/teleport ") then
+            local x, y, z = cmd:match("(%d+)[, ]*(%d+)[, ]*(%d+)")
+            if x and y and z then
+                Hacks:teleport(Vector3.new(tonumber(x), tonumber(y), tonumber(z)))
+                output.Text = output.Text .. "\n> Teleported to " .. x .. ", " .. y .. ", " .. z
+            end
+        elseif cmd:match("^/tp ") then
+            local name = cmd:gsub("^/tp ", "")
+            Hacks:teleport_to_player(name)
+            output.Text = output.Text .. "\n> Teleported to " .. name
+        elseif cmd:match("^/duplicate ") then
+            local type, count = cmd:match("^/duplicate (%w+) (%d+)")
+            if type then
+                count = tonumber(count) or 1
+                Duplicator:duplicate(game.Players.LocalPlayer, type, count)
+                output.Text = output.Text .. "\n> Duplicated " .. count .. " " .. type .. "(s)"
+            end
+        elseif cmd:match("^/infinite_dupe ") then
+            local type = cmd:gsub("^/infinite_dupe ", "")
+            Duplicator:start_infinite_duplication(type)
+            output.Text = output.Text .. "\n> Infinite duplication started for " .. type
+        elseif cmd:match("^/stop_dupe") then
+            output.Text = output.Text .. "\n> Use the stop function returned from start_infinite_duplication"
+        elseif cmd:match("^/rejoin") then
+            AntiDetection:rejoin()
+            output.Text = output.Text .. "\n> Rejoining..."
+        else
+            output.Text = output.Text .. "\n! Unknown command. Type /help for commands"
+        end
+    end
+    
+    -- Handle Enter key in input
+    input.FocusLost:Connect(function(enter_pressed)
+        if enter_pressed and input.Text ~= "" then
+            local text = input.Text
+            if text:match("^/") then
+                process_command(text)
+            else
+                local success, result = Executor:execute(text)
+                if success then
+                    output.Text = output.Text .. "\n> " .. tostring(result or "Success!")
+                else
+                    output.Text = output.Text .. "\n! Error: " .. tostring(result)
+                end
+            end
+            input.Text = ""
+        end
+    end)
+    
+    return screen
+end
+
+-- ============================================
+-- SECTION 7: SCRIPT LOADER
+-- ============================================
+
+local ScriptLoader = {}
+
+function ScriptLoader:load_from_url(url)
+    local success, content = pcall(function()
+        return game:GetService("HttpService"):GetAsync(url)
+    end)
+    if success and content then
+        return Executor:execute(content)
+    end
+    return nil
+end
+
+function ScriptLoader:load_from_file(path)
+    local success, content = pcall(function()
+        return readfile(path)
+    end)
+    if success and content then
+        return Executor:execute(content)
+    end
+    return nil
+end
+
+function ScriptLoader:
