@@ -5,7 +5,48 @@
 ]]
 
 -- ============================================
--- SECTION 1: DECOMPRESSION ENGINE
+-- SECTION 1: THEME & UI COMPONENTS
+-- ============================================
+
+local Theme = {
+    Background = Color3.fromRGB(16,16,16),
+    Sidebar = Color3.fromRGB(22,22,22),
+    Card = Color3.fromRGB(28,28,28),
+    Accent = Color3.fromRGB(115,255,70),
+    AccentRed = Color3.fromRGB(255,70,70),
+    AccentBlue = Color3.fromRGB(70,150,255),
+    AccentYellow = Color3.fromRGB(255,200,50),
+    AccentPurple = Color3.fromRGB(150,50,255),
+    Secondary = Color3.fromRGB(45,45,45),
+    Border = Color3.fromRGB(45,45,45),
+    Text = Color3.fromRGB(240,240,240)
+}
+
+local function Create(class,props,parent)
+    local obj = Instance.new(class)
+    for k,v in pairs(props or {}) do
+        obj[k]=v
+    end
+    obj.Parent = parent
+    return obj
+end
+
+local function Corner(obj,r)
+    Create("UICorner",{CornerRadius=UDim.new(0,r)},obj)
+end
+
+local function Stroke(obj)
+    Create("UIStroke",{
+        Color=Theme.Border,
+        Thickness=1
+    },obj)
+end
+
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+-- ============================================
+-- SECTION 2: DECOMPRESSION ENGINE
 -- ============================================
 
 local CHAR_TABLE = {}
@@ -59,7 +100,7 @@ local function clean_header(data)
 end
 
 -- ============================================
--- SECTION 2: CORE EXECUTOR ENGINE
+-- SECTION 3: CORE EXECUTOR ENGINE
 -- ============================================
 
 local Executor = {
@@ -108,10 +149,12 @@ function Executor:inject_script(player, script_content)
 end
 
 -- ============================================
--- SECTION 3: DUPLICATION SYSTEM
+-- SECTION 4: DUPLICATION SYSTEM
 -- ============================================
 
-local Duplicator = {}
+local Duplicator = {
+    active_duplications = {}
+}
 
 function Duplicator:duplicate_items(player, item_name, count)
     count = count or 1
@@ -333,18 +376,35 @@ function Duplicator:duplicate(target, type, count)
     return results
 end
 
-function Duplicator:start_infinite_duplication(type, interval)
+function Duplicator:start_infinite_duplication(type, interval, count)
     interval = interval or 0.5
+    count = count or 1
     local running = true
     
-    coroutine.wrap(function()
+    local thread = coroutine.create(function()
         while running do
-            self:duplicate(game.Players.LocalPlayer, type, 1)
+            self:duplicate(game.Players.LocalPlayer, type, count)
             task.wait(interval)
         end
-    end)()
+    end)
+    coroutine.resume(thread)
     
-    return function() running = false end
+    local id = #self.active_duplications + 1
+    self.active_duplications[id] = function()
+        running = false
+        self.active_duplications[id] = nil
+    end
+    
+    return id
+end
+
+function Duplicator:stop_infinite_duplication(id)
+    if self.active_duplications[id] then
+        self.active_duplications[id]()
+        self.active_duplications[id] = nil
+        return true
+    end
+    return false
 end
 
 function Duplicator:duplicate_to_all(item_name, count)
@@ -360,7 +420,7 @@ function Duplicator:duplicate_to_all(item_name, count)
 end
 
 -- ============================================
--- SECTION 4: HACK FEATURES WITH TOGGLES
+-- SECTION 5: HACK FEATURES WITH TOGGLES
 -- ============================================
 
 local Hacks = {
@@ -394,7 +454,10 @@ local Hacks = {
     god_mode_function = nil,
     no_clip_function = nil,
     auto_farm_function = nil,
-    wallhack_function = nil
+    wallhack_function = nil,
+    kill_aura_function = nil,
+    bunny_hop_function = nil,
+    aimbot_function = nil
 }
 
 -- FLY HACK
@@ -407,7 +470,6 @@ function Hacks:fly(speed)
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
     
-    -- If already flying, disable
     if self.active.fly then
         self.active.fly = false
         if self.fly_function then
@@ -711,11 +773,21 @@ function Hacks:kill_aura(radius)
     
     if self.active.kill_aura then
         self.active.kill_aura = false
+        if self.kill_aura_function then
+            self.kill_aura_function()
+            self.kill_aura_function = nil
+        end
         return false
     end
     
     self.active.kill_aura = true
     local running = true
+    
+    self.kill_aura_function = function()
+        running = false
+        self.active.kill_aura = false
+        self.kill_aura_function = nil
+    end
     
     coroutine.wrap(function()
         while running do
@@ -744,7 +816,7 @@ function Hacks:kill_aura(radius)
         end
     end)()
     
-    return function() running = false; self.active.kill_aura = false end
+    return self.kill_aura_function
 end
 
 -- AUTO FARM
@@ -770,13 +842,11 @@ function Hacks:auto_farm()
     coroutine.wrap(function()
         local player = game.Players.LocalPlayer
         while running do
-            -- Auto click
             local uis = game:GetService("UserInputService")
             uis:SetMouseButton1Down(true)
             task.wait(0.1)
             uis:SetMouseButton1Down(false)
             
-            -- Collect nearby items
             for _, obj in ipairs(workspace:GetDescendants()) do
                 if obj:IsA("Tool") and not obj.Parent and obj:FindFirstChild("Handle") then
                     obj.Parent = player.Character or player
@@ -795,6 +865,10 @@ end
 function Hacks:wallhack()
     if self.active.wallhack then
         self.active.wallhack = false
+        if self.wallhack_function then
+            self.wallhack_function()
+            self.wallhack_function = nil
+        end
         return false
     end
     
@@ -808,25 +882,38 @@ function Hacks:wallhack()
         end
     end
     
-    return function()
+    self.wallhack_function = function()
         for part, transparency in pairs(changed) do
             if part then
                 part.Transparency = transparency
             end
         end
         self.active.wallhack = false
+        self.wallhack_function = nil
     end
+    
+    return self.wallhack_function
 end
 
 -- AIMBOT
 function Hacks:aimbot()
     if self.active.aimbot then
         self.active.aimbot = false
+        if self.aimbot_function then
+            self.aimbot_function()
+            self.aimbot_function = nil
+        end
         return false
     end
     
     self.active.aimbot = true
     local running = true
+    
+    self.aimbot_function = function()
+        running = false
+        self.active.aimbot = false
+        self.aimbot_function = nil
+    end
     
     coroutine.wrap(function()
         while running do
@@ -867,18 +954,28 @@ function Hacks:aimbot()
         end
     end)()
     
-    return function() running = false; self.active.aimbot = false end
+    return self.aimbot_function
 end
 
 -- BUNNY HOP
 function Hacks:bunny_hop()
     if self.active.bunny_hop then
         self.active.bunny_hop = false
+        if self.bunny_hop_function then
+            self.bunny_hop_function()
+            self.bunny_hop_function = nil
+        end
         return false
     end
     
     self.active.bunny_hop = true
     local running = true
+    
+    self.bunny_hop_function = function()
+        running = false
+        self.active.bunny_hop = false
+        self.bunny_hop_function = nil
+    end
     
     coroutine.wrap(function()
         local uis = game:GetService("UserInputService")
@@ -897,14 +994,32 @@ function Hacks:bunny_hop()
         end
     end)()
     
-    return function() running = false; self.active.bunny_hop = false end
+    return self.bunny_hop_function
 end
 
 -- ============================================
--- SECTION 5: DETECTION EVASION
+-- SECTION 6: DETECTION EVASION (Enabled by Default)
 -- ============================================
 
-local AntiDetection = {}
+local AntiDetection = {
+    active = true
+}
+
+function AntiDetection:initialize()
+    -- Run anti-detection measures immediately
+    self:disable_anti_cheat()
+    self:spoof_client()
+    self:bypass_ban()
+    
+    -- Continuously protect
+    coroutine.wrap(function()
+        while self.active do
+            task.wait(5)
+            self:disable_anti_cheat()
+            self:spoof_client()
+        end
+    end)()
+end
 
 function AntiDetection:bypass_ban()
     local success = pcall(function()
@@ -920,7 +1035,9 @@ function AntiDetection:bypass_ban()
         if leaderstats then
             for _, stat in ipairs(leaderstats:GetChildren()) do
                 if stat:IsA("NumberValue") or stat:IsA("IntValue") then
-                    stat.Value = 0
+                    if stat.Value > 0 then
+                        stat.Value = stat.Value
+                    end
                 end
             end
         end
@@ -941,7 +1058,8 @@ function AntiDetection:disable_anti_cheat()
                name:match("security") or
                name:match("ban") or
                name:match("detect") or
-               name:match("kick") then
+               name:match("kick") or
+               name:match("admin") then
                 obj.Disabled = true
                 table.insert(disabled, obj)
             end
@@ -970,676 +1088,764 @@ function AntiDetection:rejoin()
     return true
 end
 
+function AntiDetection:stop()
+    self.active = false
+end
+
 -- ============================================
--- SECTION 6: KURBY HUB STYLE UI
+-- SECTION 7: MODERN UI INTEGRATION
 -- ============================================
 
-local CommandUI = {}
+-- Create GUI
+local Gui = Create("ScreenGui",{
+    Name="KurbyHub",
+    ResetOnSpawn=false,
+    IgnoreGuiInset=true
+},game.Players.LocalPlayer.PlayerGui)
 
-function CommandUI:create_ui()
-    local player = game.Players.LocalPlayer
-    if not player then return end
+local Main = Create("Frame",{
+    AnchorPoint=Vector2.new(.5,.5),
+    Position=UDim2.fromScale(.5,.5),
+    Size=UDim2.fromOffset(760,470),
+    BackgroundColor3=Theme.Background,
+    BorderSizePixel=0
+},Gui)
+
+Corner(Main,14)
+Stroke(Main)
+
+local Sidebar = Create("Frame",{
+    Size=UDim2.fromOffset(70,470),
+    BackgroundColor3=Theme.Sidebar,
+    BorderSizePixel=0
+},Main)
+
+Corner(Sidebar,14)
+
+local Header = Create("Frame",{
+    Position=UDim2.new(0,82,0,0),
+    Size=UDim2.new(1,-94,0,58),
+    BackgroundTransparency=1
+},Main)
+
+local Content = Create("ScrollingFrame",{
+    Position=UDim2.new(0,82,0,70),
+    Size=UDim2.new(1,-94,1,-82),
+    BackgroundTransparency=1,
+    AutomaticCanvasSize=Enum.AutomaticSize.Y,
+    ScrollBarThickness=4,
+    CanvasSize=UDim2.new()
+},Main)
+
+Create("UIListLayout",{
+    Padding=UDim.new(0,12),
+    HorizontalAlignment=Enum.HorizontalAlignment.Center
+},Content)
+
+-- ============================================
+-- SECTION 8: UI COMPONENTS
+-- ============================================
+
+local function CreateCard()
+    local Card = Create("Frame",{
+        Size = UDim2.new(1,-8,0,0),
+        BackgroundColor3 = Theme.Card,
+        BorderSizePixel = 0,
+        AutomaticSize = Enum.AutomaticSize.Y,
+        Parent = Content
+    })
+
+    Corner(Card,12)
+    Stroke(Card)
+
+    Create("UIPadding",{
+        PaddingTop = UDim.new(0,14),
+        PaddingLeft = UDim.new(0,16),
+        PaddingRight = UDim.new(0,16),
+        PaddingBottom = UDim.new(0,14),
+        Parent = Card
+    })
+
+    Create("UIListLayout",{
+        Padding = UDim.new(0,10),
+        Parent = Card
+    })
+
+    return Card
+end
+
+local function CreateSection(Parent)
+    local Label = Create("TextLabel",{
+        Size = UDim2.new(1,0,0,20),
+        BackgroundTransparency = 1,
+        Text = "",
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.GothamBold,
+        TextColor3 = Theme.Accent,
+        TextSize = 16,
+        Parent = Parent
+    })
+    return Label
+end
+
+local function CreateRow(Parent)
+    local Row = Create("Frame",{
+        Size = UDim2.new(1,0,0,36),
+        BackgroundTransparency = 1,
+        Parent = Parent
+    })
+
+    local Label = Create("TextLabel",{
+        Size = UDim2.new(.55,0,1,0),
+        BackgroundTransparency = 1,
+        Text = "",
+        TextColor3 = Theme.Text,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.GothamMedium,
+        TextSize = 14,
+        Parent = Row
+    })
+
+    return Row
+end
+
+local function Toggle(Row, toggle_function, accent_color)
+    accent_color = accent_color or Theme.Accent
     
-    -- Main ScreenGui
-    local screen = Instance.new("ScreenGui")
-    screen.Name = "KurbyHub"
-    screen.Parent = player.PlayerGui
-    screen.ResetOnSpawn = false
+    local Holder = Create("Frame",{
+        AnchorPoint = Vector2.new(1,.5),
+        Position = UDim2.new(1,0,.5,0),
+        Size = UDim2.new(0,44,0,22),
+        BackgroundColor3 = Theme.Secondary,
+        BorderSizePixel = 0,
+        Parent = Row
+    })
+
+    Corner(Holder,99)
+
+    local Knob = Create("Frame",{
+        Position = UDim2.new(0,2,0.5,-9),
+        Size = UDim2.new(0,18,0,18),
+        BackgroundColor3 = Theme.Secondary,
+        BorderSizePixel = 0,
+        Parent = Holder
+    })
+
+    Corner(Knob,99)
     
-    -- ===== MAIN CONTAINER =====
-    local main = Instance.new("Frame")
-    main.Size = UDim2.new(0, 420, 0, 600)
-    main.Position = UDim2.new(0.5, -210, 0.5, -300)
-    main.BackgroundColor3 = Color3.fromRGB(18, 18, 32)
-    main.BackgroundTransparency = 0.05
-    main.BorderSizePixel = 2
-    main.BorderColor3 = Color3.fromRGB(70, 70, 150)
-    main.ClipsDescendants = true
-    main.Parent = screen
+    local enabled = false
     
-    -- ===== TITLE BAR =====
-    local title_bar = Instance.new("Frame")
-    title_bar.Size = UDim2.new(1, 0, 0, 45)
-    title_bar.BackgroundColor3 = Color3.fromRGB(30, 30, 60)
-    title_bar.BorderSizePixel = 0
-    title_bar.Parent = main
-    
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0.7, 0, 1, 0)
-    title.Position = UDim2.new(0.02, 0, 0, 0)
-    title.Text = "⚡ KURBY HUB ⚡"
-    title.TextSize = 20
-    title.TextColor3 = Color3.fromRGB(150, 200, 255)
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.BackgroundTransparency = 1
-    title.Font = Enum.Font.GothamBold
-    title.Parent = title_bar
-    
-    -- Close button
-    local close = Instance.new("TextButton")
-    close.Size = UDim2.new(0, 30, 1, 0)
-    close.Position = UDim2.new(1, -30, 0, 0)
-    close.Text = "✕"
-    close.TextSize = 16
-    close.TextColor3 = Color3.fromRGB(255, 255, 255)
-    close.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    close.BorderSizePixel = 0
-    close.Parent = title_bar
-    close.MouseButton1Click:Connect(function()
-        screen:Destroy()
-    end)
-    
-    -- ===== TAB BUTTONS =====
-    local tab_frame = Instance.new("Frame")
-    tab_frame.Size = UDim2.new(1, 0, 0, 40)
-    tab_frame.Position = UDim2.new(0, 0, 0, 45)
-    tab_frame.BackgroundColor3 = Color3.fromRGB(20, 20, 45)
-    tab_frame.BorderSizePixel = 0
-    tab_frame.Parent = main
-    
-    local tabs = {"MOVEMENT", "VISUALS", "COMBAT", "MISC"}
-    local tab_buttons = {}
-    
-    for i, tab_name in ipairs(tabs) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.25, 0, 1, 0)
-        btn.Position = UDim2.new((i-1) * 0.25, 0, 0, 0)
-        btn.Text = tab_name
-        btn.TextSize = 12
-        btn.TextColor3 = Color3.fromRGB(200, 200, 220)
-        btn.BackgroundColor3 = Color3.fromRGB(25, 25, 55)
-        btn.BorderSizePixel = 1
-        btn.BorderColor3 = Color3.fromRGB(50, 50, 80)
-        btn.Parent = tab_frame
-        tab_buttons[tab_name] = btn
+    local function update_state()
+        if enabled then
+            Holder.BackgroundColor3 = accent_color
+            TweenService:Create(Knob, TweenInfo.new(.15), {
+                Position = UDim2.new(1,-20,0.5,-9)
+            }):Play()
+            Knob.BackgroundColor3 = Color3.fromRGB(255,255,255)
+        else
+            Holder.BackgroundColor3 = Theme.Secondary
+            TweenService:Create(Knob, TweenInfo.new(.15), {
+                Position = UDim2.new(0,2,0.5,-9)
+            }):Play()
+            Knob.BackgroundColor3 = Theme.Secondary
+        end
     end
     
-    -- ===== CONTENT AREA =====
-    local content = Instance.new("ScrollingFrame")
-    content.Size = UDim2.new(1, 0, 1, -85)
-    content.Position = UDim2.new(0, 0, 0, 85)
-    content.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
-    content.BorderSizePixel = 0
-    content.CanvasSize = UDim2.new(0, 0, 0, 0)
-    content.ScrollBarThickness = 5
-    content.Parent = main
-    
-    -- ===== CREATE TABS =====
-    local tabs_content = {}
-    
-    -- MOVEMENT TAB
-    local movement_tab = Instance.new("Frame")
-    movement_tab.Size = UDim2.new(1, 0, 0, 800)
-    movement_tab.BackgroundTransparency = 1
-    movement_tab.Parent = content
-    tabs_content["MOVEMENT"] = movement_tab
-    
-    -- VISUALS TAB
-    local visuals_tab = Instance.new("Frame")
-    visuals_tab.Size = UDim2.new(1, 0, 0, 600)
-    visuals_tab.BackgroundTransparency = 1
-    visuals_tab.Visible = false
-    visuals_tab.Parent = content
-    tabs_content["VISUALS"] = visuals_tab
-    
-    -- COMBAT TAB
-    local combat_tab = Instance.new("Frame")
-    combat_tab.Size = UDim2.new(1, 0, 0, 700)
-    combat_tab.BackgroundTransparency = 1
-    combat_tab.Visible = false
-    combat_tab.Parent = content
-    tabs_content["COMBAT"] = combat_tab
-    
-    -- MISC TAB
-    local misc_tab = Instance.new("Frame")
-    misc_tab.Size = UDim2.new(1, 0, 0, 600)
-    misc_tab.BackgroundTransparency = 1
-    misc_tab.Visible = false
-    misc_tab.Parent = content
-    tabs_content["MISC"] = misc_tab
-    
-    -- ===== TOGGLE HELPER FUNCTION =====
-    local function create_toggle(parent, text, y_pos, toggle_function, color)
-        color = color or Color3.fromRGB(70, 70, 150)
-        local frame = Instance.new("Frame")
-        frame.Size = UDim2.new(0.95, 0, 0, 40)
-        frame.Position = UDim2.new(0.025, 0, 0, y_pos)
-        frame.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
-        frame.BorderSizePixel = 1
-        frame.BorderColor3 = Color3.fromRGB(40, 40, 70)
-        frame.Parent = parent
+    local function toggle()
+        enabled = not enabled
+        update_state()
         
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(0.6, 0, 1, 0)
-        label.Position = UDim2.new(0.02, 0, 0, 0)
-        label.Text = text
-        label.TextSize = 14
-        label.TextColor3 = Color3.fromRGB(200, 200, 220)
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.BackgroundTransparency = 1
-        label.Font = Enum.Font.Gotham
-        label.Parent = frame
-        
-        -- Toggle button
-        local toggle = Instance.new("TextButton")
-        toggle.Size = UDim2.new(0, 50, 0, 25)
-        toggle.Position = UDim2.new(0.75, 0, 0.5, -12.5)
-        toggle.Text = "OFF"
-        toggle.TextSize = 12
-        toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-        toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-        toggle.BorderSizePixel = 0
-        toggle.Parent = frame
-        
-        local status = false
-        
-        toggle.MouseButton1Click:Connect(function()
-            status = not status
-            if status then
-                toggle.Text = "ON"
-                toggle.BackgroundColor3 = color
-                toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-                if toggle_function then
-                    local disable_func = toggle_function()
-                    if disable_func then
-                        -- Store disable function for later
-                        local old_click = toggle.MouseButton1Click
-                        toggle.MouseButton1Click:Connect(function()
-                            if status then
-                                disable_func()
-                                status = false
-                                toggle.Text = "OFF"
-                                toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-                            end
-                        end)
+        if enabled then
+            if toggle_function then
+                local disable_func = toggle_function()
+                if disable_func then
+                    -- Store disable function to call when toggling off
+                    local old_toggle = toggle
+                    toggle = function()
+                        disable_func()
+                        enabled = false
+                        update_state()
+                        toggle = old_toggle
                     end
                 end
-            else
-                toggle.Text = "OFF"
-                toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
             end
-        end)
-        
-        return toggle
+        end
     end
     
-    -- ===== POPULATE MOVEMENT TAB =====
-    local mov_y = 5
+    Holder.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            toggle()
+        end
+    end)
     
-    -- Movement header
-    local mov_header = Instance.new("TextLabel")
-    mov_header.Size = UDim2.new(0.95, 0, 0, 30)
-    mov_header.Position = UDim2.new(0.025, 0, 0, mov_y)
-    mov_header.Text = "⚡ MOVEMENT HACKS"
-    mov_header.TextSize = 16
-    mov_header.TextColor3 = Color3.fromRGB(150, 200, 255)
-    mov_header.TextXAlignment = Enum.TextXAlignment.Left
-    mov_header.BackgroundColor3 = Color3.fromRGB(30, 30, 60)
-    mov_header.BorderSizePixel = 0
-    mov_header.Parent = movement_tab
-    mov_y = mov_y + 35
+    update_state()
     
-    -- Fly toggle
-    create_toggle(movement_tab, "✈ Fly (WASD + Space)", mov_y, function()
-        return Hacks:fly(50)
-    end, Color3.fromRGB(50, 150, 255))
-    mov_y = mov_y + 45
+    return Holder
+end
+
+local function Slider(Row, default_value, min, max, callback)
+    min = min or 0
+    max = max or 100
+    default_value = default_value or 50
     
-    -- Speed toggle with slider
-    local speed_frame = Instance.new("Frame")
-    speed_frame.Size = UDim2.new(0.95, 0, 0, 55)
-    speed_frame.Position = UDim2.new(0.025, 0, 0, mov_y)
-    speed_frame.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
-    speed_frame.BorderSizePixel = 1
-    speed_frame.BorderColor3 = Color3.fromRGB(40, 40, 70)
-    speed_frame.Parent = movement_tab
-    mov_y = mov_y + 60
+    local value_label = Create("TextLabel",{
+        AnchorPoint = Vector2.new(1,.5),
+        Position = UDim2.new(1,0,.5,0),
+        Size = UDim2.new(0,40,0,20),
+        BackgroundTransparency = 1,
+        Text = tostring(default_value),
+        TextColor3 = Theme.Accent,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        Parent = Row
+    })
+
+    local Bar = Create("Frame",{
+        AnchorPoint = Vector2.new(1,.5),
+        Position = UDim2.new(1,-50,.5,0),
+        Size = UDim2.new(0,170,0,6),
+        BackgroundColor3 = Theme.Secondary,
+        BorderSizePixel = 0,
+        Parent = Row
+    })
+
+    Corner(Bar,99)
+
+    local Fill = Create("Frame",{
+        Size = UDim2.new((default_value - min)/(max - min),0,1,0),
+        BackgroundColor3 = Theme.Accent,
+        BorderSizePixel = 0,
+        Parent = Bar
+    })
+
+    Corner(Fill,99)
+
+    local Knob = Create("Frame",{
+        AnchorPoint = Vector2.new(.5,.5),
+        Position = UDim2.new(1,0,.5,0),
+        Size = UDim2.new(0,12,0,12),
+        BackgroundColor3 = Theme.Accent,
+        BorderSizePixel = 0,
+        Parent = Fill
+    })
+
+    Corner(Knob,99)
     
-    local speed_label = Instance.new("TextLabel")
-    speed_label.Size = UDim2.new(0.5, 0, 0.5, 0)
-    speed_label.Position = UDim2.new(0.02, 0, 0, 0)
-    speed_label.Text = "⚡ Speed Multiplier"
-    speed_label.TextSize = 14
-    speed_label.TextColor3 = Color3.fromRGB(200, 200, 220)
-    speed_label.TextXAlignment = Enum.TextXAlignment.Left
-    speed_label.BackgroundTransparency = 1
-    speed_label.Font = Enum.Font.Gotham
-    speed_label.Parent = speed_frame
+    local dragging = false
+    local current_value = default_value
     
-    local speed_value = Instance.new("TextLabel")
-    speed_value.Size = UDim2.new(0.2, 0, 0.5, 0)
-    speed_value.Position = UDim2.new(0.75, 0, 0, 0)
-    speed_value.Text = "2x"
-    speed_value.TextSize = 14
-    speed_value.TextColor3 = Color3.fromRGB(255, 200, 50)
-    speed_value.BackgroundTransparency = 1
-    speed_value.Font = Enum.Font.GothamBold
-    speed_value.Parent = speed_frame
+    local function update_slider(input)
+        local mouse_pos = input.Position.X
+        local bar_abs_pos = Bar.AbsolutePosition.X
+        local bar_width = Bar.AbsoluteSize.X
+        
+        local percent = math.clamp((mouse_pos - bar_abs_pos) / bar_width, 0, 1)
+        current_value = math.floor(min + (max - min) * percent)
+        
+        Fill.Size = UDim2.new(percent,0,1,0)
+        value_label.Text = tostring(current_value)
+        
+        if callback then
+            callback(current_value)
+        end
+    end
     
-    local speed_slider = Instance.new("Frame")
-    speed_slider.Size = UDim2.new(0.6, 0, 0.25, 0)
-    speed_slider.Position = UDim2.new(0.02, 0, 0.6, 0)
-    speed_slider.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
-    speed_slider.BorderSizePixel = 0
-    speed_slider.Parent = speed_frame
+    Bar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            update_slider(input)
+        end
+    end)
     
-    local speed_fill = Instance.new("Frame")
-    speed_fill.Size = UDim2.new(0.5, 0, 1, 0)
-    speed_fill.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-    speed_fill.BorderSizePixel = 0
-    speed_fill.Parent = speed_slider
+    Bar.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
     
-    local speed_toggle = Instance.new("TextButton")
-    speed_toggle.Size = UDim2.new(0, 50, 0, 25)
-    speed_toggle.Position = UDim2.new(0.75, 0, 0.5, -12.5)
-    speed_toggle.Text = "OFF"
-    speed_toggle.TextSize = 12
-    speed_toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    speed_toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    speed_toggle.BorderSizePixel = 0
-    speed_toggle.Parent = speed_frame
+    UIS.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            update_slider(input)
+        end
+    end)
     
-    local speed_status = false
-    local current_speed = 2
-    local speed_disable = nil
+    return function() return current_value end
+end
+
+local function Button(Row, callback)
+    local B = Create("TextButton",{
+        AnchorPoint = Vector2.new(1,.5),
+        Position = UDim2.new(1,0,.5,0),
+        Size = UDim2.new(0,110,0,28),
+        BackgroundColor3 = Theme.Accent,
+        BorderSizePixel = 0,
+        Text = "",
+        AutoButtonColor = false,
+        Parent = Row
+    })
+
+    Corner(B,8)
+
+    B.MouseEnter:Connect(function()
+        TweenService:Create(B,TweenInfo.new(.15),{
+            BackgroundColor3 = Color3.fromRGB(135,255,90)
+        }):Play()
+    end)
+
+    B.MouseLeave:Connect(function()
+        TweenService:Create(B,TweenInfo.new(.15),{
+            BackgroundColor3 = Theme.Accent
+        }):Play()
+    end)
     
-    speed_toggle.MouseButton1Click:Connect(function()
-        speed_status = not speed_status
-        if speed_status then
-            speed_toggle.Text = "ON"
-            speed_toggle.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-            speed_disable = Hacks:speed(current_speed)
+    B.MouseButton1Click:Connect(function()
+        if callback then callback() end
+    end)
+    
+    return B
+end
+
+local function Dropdown(Row, options, default_index, callback)
+    default_index = default_index or 1
+    
+    local Box = Create("Frame",{
+        AnchorPoint = Vector2.new(1,.5),
+        Position = UDim2.new(1,0,.5,0),
+        Size = UDim2.new(0,150,0,28),
+        BackgroundColor3 = Theme.Secondary,
+        BorderSizePixel = 0,
+        Parent = Row
+    })
+
+    Corner(Box,8)
+    Stroke(Box)
+
+    local Label = Create("TextLabel",{
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1,-24,1,0),
+        Text = options[default_index] or "",
+        TextColor3 = Theme.Text,
+        Font = Enum.Font.Gotham,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = Box
+    })
+
+    Create("TextLabel",{
+        AnchorPoint = Vector2.new(1,.5),
+        Position = UDim2.new(1,-8,.5,0),
+        Size = UDim2.new(0,12,1,0),
+        BackgroundTransparency = 1,
+        Text = "▼",
+        TextColor3 = Theme.Accent,
+        Font = Enum.Font.GothamBold,
+        TextSize = 10,
+        Parent = Box
+    })
+    
+    local expanded = false
+    local dropdown_menu = nil
+    
+    local function toggle_dropdown()
+        expanded = not expanded
+        
+        if expanded then
+            dropdown_menu = Create("Frame",{
+                AnchorPoint = Vector2.new(1,0),
+                Position = UDim2.new(1,0,0,30),
+                Size = UDim2.new(0,150,0,math.min(#options * 30, 150)),
+                BackgroundColor3 = Theme.Card,
+                BorderSizePixel = 0,
+                ZIndex = 10,
+                Parent = Box
+            })
+            Corner(dropdown_menu,8)
+            Stroke(dropdown_menu)
+            
+            local layout = Create("UIListLayout",{
+                Padding = UDim.new(0,2),
+                Parent = dropdown_menu
+            })
+            
+            for i, option in ipairs(options) do
+                local btn = Create("TextButton",{
+                    Size = UDim2.new(1,0,0,28),
+                    BackgroundTransparency = 1,
+                    Text = option,
+                    TextColor3 = Theme.Text,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 13,
+                    AutoButtonColor = false,
+                    Parent = dropdown_menu
+                })
+                
+                btn.MouseEnter:Connect(function()
+                    btn.BackgroundTransparency = 0.1
+                    btn.BackgroundColor3 = Theme.Accent
+                end)
+                
+                btn.MouseLeave:Connect(function()
+                    btn.BackgroundTransparency = 1
+                end)
+                
+                btn.MouseButton1Click:Connect(function()
+                    Label.Text = option
+                    if callback then callback(option, i) end
+                    toggle_dropdown()
+                end)
+            end
         else
-            speed_toggle.Text = "OFF"
-            speed_toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-            if speed_disable then
-                speed_disable()
-                speed_disable = nil
-            end
-        end
-    end)
-    
-    -- Directional Jump toggle
-    create_toggle(movement_tab, "🔄 Directional Jump", mov_y, function()
-        -- Directional jump functionality
-        return function()
-            -- Disable function
-        end
-    end, Color3.fromRGB(150, 50, 255))
-    mov_y = mov_y + 45
-    
-    -- Air Movement toggle
-    create_toggle(movement_tab, "🌊 Air Movement", mov_y, function()
-        return function()
-            -- Disable function
-        end
-    end, Color3.fromRGB(50, 200, 150))
-    mov_y = mov_y + 45
-    
-    -- Infinite Jump toggle
-    create_toggle(movement_tab, "🔄 Infinite Jump", mov_y, function()
-        return Hacks:infinite_jump()
-    end, Color3.fromRGB(200, 100, 255))
-    mov_y = mov_y + 45
-    
-    -- Bunny Hop toggle
-    create_toggle(movement_tab, "🐰 Bunny Hop", mov_y, function()
-        return Hacks:bunny_hop()
-    end, Color3.fromRGB(100, 200, 255))
-    mov_y = mov_y + 45
-    
-    -- No Clip toggle
-    create_toggle(movement_tab, "🚫 No Clip", mov_y, function()
-        return Hacks:no_clip()
-    end, Color3.fromRGB(200, 200, 50))
-    mov_y = mov_y + 45
-    
-    movement_tab.Size = UDim2.new(1, 0, 0, mov_y + 20)
-    
-    -- ===== POPULATE VISUALS TAB =====
-    local vis_y = 5
-    
-    local vis_header = Instance.new("TextLabel")
-    vis_header.Size = UDim2.new(0.95, 0, 0, 30)
-    vis_header.Position = UDim2.new(0.025, 0, 0, vis_y)
-    vis_header.Text = "👁 VISUAL HACKS"
-    vis_header.TextSize = 16
-    vis_header.TextColor3 = Color3.fromRGB(150, 200, 255)
-    vis_header.TextXAlignment = Enum.TextXAlignment.Left
-    vis_header.BackgroundColor3 = Color3.fromRGB(30, 30, 60)
-    vis_header.BorderSizePixel = 0
-    vis_header.Parent = visuals_tab
-    vis_y = vis_y + 35
-    
-    -- ESP toggle
-    create_toggle(visuals_tab, "👁 Character ESP (Clone)", vis_y, function()
-        return Hacks:esp(Color3.fromRGB(255, 0, 0))
-    end, Color3.fromRGB(255, 50, 50))
-    vis_y = vis_y + 45
-    
-    -- Enemy Jump ESP toggle
-    create_toggle(visuals_tab, "📈 Enemy Jump ESP", vis_y, function()
-        return function()
-            -- Disable function
-        end
-    end, Color3.fromRGB(255, 200, 50))
-    vis_y = vis_y + 45
-    
-    -- Wallhack toggle
-    create_toggle(visuals_tab, "🧱 Wallhack", vis_y, function()
-        return Hacks:wallhack()
-    end, Color3.fromRGB(50, 200, 255))
-    vis_y = vis_y + 45
-    
-    -- Chams toggle
-    create_toggle(visuals_tab, "💎 Chams", vis_y, function()
-        return function()
-            -- Disable function
-        end
-    end, Color3.fromRGB(255, 50, 200))
-    vis_y = vis_y + 45
-    
-    -- Name ESP toggle
-    create_toggle(visuals_tab, "📛 Name ESP", vis_y, function()
-        return function()
-            -- Disable function
-        end
-    end, Color3.fromRGB(50, 200, 100))
-    vis_y = vis_y + 45
-    
-    -- Tracers toggle
-    create_toggle(visuals_tab, "📏 Tracers", vis_y, function()
-        return function()
-            -- Disable function
-        end
-    end, Color3.fromRGB(200, 100, 50))
-    vis_y = vis_y + 45
-    
-    visuals_tab.Size = UDim2.new(1, 0, 0, vis_y + 20)
-    
-    -- ===== POPULATE COMBAT TAB =====
-    local com_y = 5
-    
-    local com_header = Instance.new("TextLabel")
-    com_header.Size = UDim2.new(0.95, 0, 0, 30)
-    com_header.Position = UDim2.new(0.025, 0, 0, com_y)
-    com_header.Text = "⚔️ COMBAT HACKS"
-    com_header.TextSize = 16
-    com_header.TextColor3 = Color3.fromRGB(150, 200, 255)
-    com_header.TextXAlignment = Enum.TextXAlignment.Left
-    com_header.BackgroundColor3 = Color3.fromRGB(30, 30, 60)
-    com_header.BorderSizePixel = 0
-    com_header.Parent = combat_tab
-    com_y = com_y + 35
-    
-    -- God Mode toggle
-    create_toggle(combat_tab, "🛡 God Mode", com_y, function()
-        return Hacks:god_mode()
-    end, Color3.fromRGB(50, 200, 50))
-    com_y = com_y + 45
-    
-    -- Aimbot toggle
-    create_toggle(combat_tab, "🎯 Aimbot", com_y, function()
-        return Hacks:aimbot()
-    end, Color3.fromRGB(255, 50, 50))
-    com_y = com_y + 45
-    
-    -- Silent Aim toggle
-    create_toggle(combat_tab, "🔇 Silent Aim", com_y, function()
-        return function()
-            -- Disable function
-        end
-    end, Color3.fromRGB(200, 50, 200))
-    com_y = com_y + 45
-    
-    -- Kill Aura toggle
-    create_toggle(combat_tab, "💀 Kill Aura", com_y, function()
-        return Hacks:kill_aura(20)
-    end, Color3.fromRGB(200, 50, 50))
-    com_y = com_y + 45
-    
-    -- Spin Bot toggle
-    create_toggle(combat_tab, "🔄 Spin Bot", com_y, function()
-        return function()
-            -- Disable function
-        end
-    end, Color3.fromRGB(50, 200, 255))
-    com_y = com_y + 45
-    
-    -- Auto Click toggle
-    create_toggle(combat_tab, "🖱 Auto Click", com_y, function()
-        return function()
-            -- Disable function
-        end
-    end, Color3.fromRGB(255, 200, 50))
-    com_y = com_y + 45
-    
-    -- Reach toggle
-    create_toggle(combat_tab, "📏 Reach", com_y, function()
-        return function()
-            -- Disable function
-        end
-    end, Color3.fromRGB(100, 200, 100))
-    com_y = com_y + 45
-    
-    combat_tab.Size = UDim2.new(1, 0, 0, com_y + 20)
-    
-    -- ===== POPULATE MISC TAB =====
-    local mis_y = 5
-    
-    local mis_header = Instance.new("TextLabel")
-    mis_header.Size = UDim2.new(0.95, 0, 0, 30)
-    mis_header.Position = UDim2.new(0.025, 0, 0, mis_y)
-    mis_header.Text = "🔧 MISC FEATURES"
-    mis_header.TextSize = 16
-    mis_header.TextColor3 = Color3.fromRGB(150, 200, 255)
-    mis_header.TextXAlignment = Enum.TextXAlignment.Left
-    mis_header.BackgroundColor3 = Color3.fromRGB(30, 30, 60)
-    mis_header.BorderSizePixel = 0
-    mis_header.Parent = misc_tab
-    mis_y = mis_y + 35
-    
-    -- Auto Farm toggle
-    create_toggle(misc_tab, "🌾 Auto Farm", mis_y, function()
-        return Hacks:auto_farm()
-    end, Color3.fromRGB(50, 150, 255))
-    mis_y = mis_y + 45
-    
-    -- Teleport button
-    local tp_frame = Instance.new("Frame")
-    tp_frame.Size = UDim2.new(0.95, 0, 0, 55)
-    tp_frame.Position = UDim2.new(0.025, 0, 0, mis_y)
-    tp_frame.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
-    tp_frame.BorderSizePixel = 1
-    tp_frame.BorderColor3 = Color3.fromRGB(40, 40, 70)
-    tp_frame.Parent = misc_tab
-    mis_y = mis_y + 60
-    
-    local tp_label = Instance.new("TextLabel")
-    tp_label.Size = UDim2.new(0.5, 0, 0.5, 0)
-    tp_label.Position = UDim2.new(0.02, 0, 0, 0)
-    tp_label.Text = "📍 Teleport to Player"
-    tp_label.TextSize = 14
-    tp_label.TextColor3 = Color3.fromRGB(200, 200, 220)
-    tp_label.TextXAlignment = Enum.TextXAlignment.Left
-    tp_label.BackgroundTransparency = 1
-    tp_label.Font = Enum.Font.Gotham
-    tp_label.Parent = tp_frame
-    
-    local tp_input = Instance.new("TextBox")
-    tp_input.Size = UDim2.new(0.4, 0, 0.5, 0)
-    tp_input.Position = UDim2.new(0.02, 0, 0.5, 0)
-    tp_input.PlaceholderText = "Player name"
-    tp_input.Text = ""
-    tp_input.TextColor3 = Color3.fromRGB(255, 255, 255)
-    tp_input.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
-    tp_input.Font = Enum.Font.Gotham
-    tp_input.TextSize = 12
-    tp_input.Parent = tp_frame
-    
-    local tp_btn = Instance.new("TextButton")
-    tp_btn.Size = UDim2.new(0.15, 0, 0.5, 0)
-    tp_btn.Position = UDim2.new(0.45, 0, 0.5, 0)
-    tp_btn.Text = "TP!"
-    tp_btn.TextSize = 14
-    tp_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    tp_btn.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
-    tp_btn.BorderSizePixel = 0
-    tp_btn.Parent = tp_frame
-    tp_btn.MouseButton1Click:Connect(function()
-        if tp_input.Text ~= "" then
-            Hacks:teleport_to_player(tp_input.Text)
-            tp_input.Text = ""
-        end
-    end)
-    
-    -- Kill All button
-    local kill_btn = Instance.new("TextButton")
-    kill_btn.Size = UDim2.new(0.45, 0, 0.12, 0)
-    kill_btn.Position = UDim2.new(0.025, 0, 0, mis_y)
-    kill_btn.Text = "💀 Kill All Players"
-    kill_btn.TextSize = 14
-    kill_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    kill_btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    kill_btn.BorderSizePixel = 0
-    kill_btn.Parent = misc_tab
-    kill_btn.MouseButton1Click:Connect(function()
-        Hacks:kill_all()
-    end)
-    mis_y = mis_y + 55
-    
-    -- Disable Anti-Cheat button
-    local anti_btn = Instance.new("TextButton")
-    anti_btn.Size = UDim2.new(0.45, 0, 0.12, 0)
-    anti_btn.Position = UDim2.new(0.525, 0, 0, mis_y)
-    anti_btn.Text = "🚫 Disable Anti-Cheat"
-    anti_btn.TextSize = 14
-    anti_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    anti_btn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
-    anti_btn.BorderSizePixel = 0
-    anti_btn.Parent = misc_tab
-    anti_btn.MouseButton1Click:Connect(function()
-        AntiDetection:disable_anti_cheat()
-    end)
-    mis_y = mis_y + 55
-    
-    -- Rejoin button
-    local rejoin_btn = Instance.new("TextButton")
-    rejoin_btn.Size = UDim2.new(0.45, 0, 0.12, 0)
-    rejoin_btn.Position = UDim2.new(0.025, 0, 0, mis_y)
-    rejoin_btn.Text = "🔄 Rejoin Game"
-    rejoin_btn.TextSize = 14
-    rejoin_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    rejoin_btn.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
-    rejoin_btn.BorderSizePixel = 0
-    rejoin_btn.Parent = misc_tab
-    rejoin_btn.MouseButton1Click:Connect(function()
-        AntiDetection:rejoin()
-    end)
-    mis_y = mis_y + 55
-    
-    -- Bypass Ban button
-    local bypass_btn = Instance.new("TextButton")
-    bypass_btn.Size = UDim2.new(0.45, 0, 0.12, 0)
-    bypass_btn.Position = UDim2.new(0.525, 0, 0, mis_y)
-    bypass_btn.Text = "🛡 Bypass Ban"
-    bypass_btn.TextSize = 14
-    bypass_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    bypass_btn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-    bypass_btn.BorderSizePixel = 0
-    bypass_btn.Parent = misc_tab
-    bypass_btn.MouseButton1Click:Connect(function()
-        AntiDetection:bypass_ban()
-    end)
-    mis_y = mis_y + 55
-    
-    misc_tab.Size = UDim2.new(1, 0, 0, mis_y + 20)
-    
-    -- ===== TAB SWITCHING =====
-    local function switch_tab(tab_name)
-        for name, frame in pairs(tabs_content) do
-            frame.Visible = (name == tab_name)
-        end
-        
-        for name, btn in pairs(tab_buttons) do
-            if name == tab_name then
-                btn.BackgroundColor3 = Color3.fromRGB(60, 60, 120)
-                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            else
-                btn.BackgroundColor3 = Color3.fromRGB(25, 25, 55)
-                btn.TextColor3 = Color3.fromRGB(200, 200, 220)
+            if dropdown_menu then
+                dropdown_menu:Destroy()
+                dropdown_menu = nil
             end
         end
     end
     
-    for name, btn in pairs(tab_buttons) do
-        btn.MouseButton1Click:Connect(function()
-            switch_tab(name)
-        end)
-    end
+    Box.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            toggle_dropdown()
+        end
+    end)
     
-    -- Default to MOVEMENT tab
-    switch_tab("MOVEMENT")
+    return function() return Label.Text end
+end
+
+local function Textbox(Row, placeholder, callback)
+    local Box = Create("TextBox",{
+        AnchorPoint = Vector2.new(1,.5),
+        Position = UDim2.new(1,0,.5,0),
+        Size = UDim2.new(0,150,0,28),
+        BackgroundColor3 = Theme.Secondary,
+        Text = "",
+        PlaceholderText = placeholder or "",
+        ClearTextOnFocus = false,
+        TextColor3 = Theme.Text,
+        PlaceholderColor3 = Color3.fromRGB(120,120,120),
+        Font = Enum.Font.Gotham,
+        TextSize = 13,
+        BorderSizePixel = 0,
+        Parent = Row
+    })
+
+    Corner(Box,8)
+    Stroke(Box)
     
-    -- Update content canvas size
-    content.CanvasSize = UDim2.new(0, 0, 0, movement_tab.Size.Y.Offset + 50)
+    Box.FocusLost:Connect(function(enter_pressed)
+        if enter_pressed and callback then
+            callback(Box.Text)
+        end
+    end)
     
-    return screen
+    return Box
+end
+
+local function Keybind(Row, callback)
+    local Box = Create("TextButton",{
+        AnchorPoint = Vector2.new(1,.5),
+        Position = UDim2.new(1,0,.5,0),
+        Size = UDim2.new(0,70,0,28),
+        BackgroundColor3 = Theme.Secondary,
+        Text = "None",
+        TextColor3 = Theme.Text,
+        BorderSizePixel = 0,
+        Parent = Row
+    })
+
+    Corner(Box,8)
+    Stroke(Box)
+    
+    local listening = false
+    
+    Box.MouseButton1Click:Connect(function()
+        listening = true
+        Box.Text = "Press key..."
+        Box.BackgroundColor3 = Theme.Accent
+    end)
+    
+    UIS.InputBegan:Connect(function(input)
+        if listening and input.UserInputType == Enum.UserInputType.Keyboard then
+            local key = input.KeyCode.Name
+            Box.Text = key
+            Box.BackgroundColor3 = Theme.Secondary
+            listening = false
+            if callback then callback(key) end
+        end
+    end)
+    
+    return Box
 end
 
 -- ============================================
--- SECTION 7: INITIALIZATION
+-- SECTION 9: BUILD UI CARDS
 -- ============================================
 
-local function initialize_executor()
-    print("⚡ Fishy v" .. Executor.version .. " loaded successfully!")
+-- MOVEMENT CARD
+local MovementCard = CreateCard()
+CreateSection(MovementCard).Text = "⚡ MOVEMENT"
+
+local fly_row = CreateRow(MovementCard)
+fly_row.Label.Text = "✈ Fly"
+local fly_toggle = Toggle(fly_row, function() return Hacks:fly(50) end, Theme.AccentBlue)
+
+local speed_row = CreateRow(MovementCard)
+speed_row.Label.Text = "⚡ Speed"
+local speed_value = 2
+Slider(speed_row, 2, 1, 10, function(value)
+    speed_value = value
+end)
+local speed_toggle = Toggle(speed_row, function() return Hacks:speed(speed_value) end, Theme.AccentYellow)
+
+local jump_row = CreateRow(MovementCard)
+jump_row.Label.Text = "🔄 Infinite Jump"
+local jump_toggle = Toggle(jump_row, function() return Hacks:infinite_jump() end, Theme.AccentPurple)
+
+local noclip_row = CreateRow(MovementCard)
+noclip_row.Label.Text = "🚫 No Clip"
+local noclip_toggle = Toggle(noclip_row, function() return Hacks:no_clip() end, Theme.AccentYellow)
+
+local bunny_row = CreateRow(MovementCard)
+bunny_row.Label.Text = "🐰 Bunny Hop"
+local bunny_toggle = Toggle(bunny_row, function() return Hacks:bunny_hop() end, Theme.AccentBlue)
+
+-- VISUAL CARD
+local VisualCard = CreateCard()
+CreateSection(VisualCard).Text = "👁 VISUALS"
+
+local esp_row = CreateRow(VisualCard)
+esp_row.Label.Text = "👁 ESP"
+local esp_toggle = Toggle(esp_row, function() return Hacks:esp(Color3.fromRGB(255,0,0)) end, Theme.AccentRed)
+
+local wall_row = CreateRow(VisualCard)
+wall_row.Label.Text = "🧱 Wallhack"
+local wall_toggle = Toggle(wall_row, function() return Hacks:wallhack() end, Theme.AccentBlue)
+
+local chams_row = CreateRow(VisualCard)
+chams_row.Label.Text = "💎 Chams"
+local chams_toggle = Toggle(chams_row, function() 
+    -- Chams implementation
+    return function() end
+end, Theme.AccentPurple)
+
+-- COMBAT CARD
+local CombatCard = CreateCard()
+CreateSection(CombatCard).Text = "⚔️ COMBAT"
+
+local god_row = CreateRow(CombatCard)
+god_row.Label.Text = "🛡 God Mode"
+local god_toggle = Toggle(god_row, function() return Hacks:god_mode() end, Theme.Accent)
+
+local aimbot_row = CreateRow(CombatCard)
+aimbot_row.Label.Text = "🎯 Aimbot"
+local aimbot_toggle = Toggle(aimbot_row, function() return Hacks:aimbot() end, Theme.AccentRed)
+
+local killaura_row = CreateRow(CombatCard)
+killaura_row.Label.Text = "💀 Kill Aura"
+local killaura_toggle = Toggle(killaura_row, function() return Hacks:kill_aura(20) end, Theme.AccentRed)
+
+-- DUPLICATION CARD
+local DupeCard = CreateCard()
+CreateSection(DupeCard).Text = "📦 DUPLICATION"
+
+-- Item Duplication
+local item_row = CreateRow(DupeCard)
+item_row.Label.Text = "📦 Duplicate Items"
+local item_textbox = Textbox(item_row, "Item name", function() end)
+local item_button = Button(item_row, function()
+    if item_textbox.Text ~= "" then
+        Duplicator:duplicate_items(game.Players.LocalPlayer, item_textbox.Text, 5)
+        item_textbox.Text = ""
+    end
+end)
+item_button.Text = "Duplicate!"
+
+-- Infinite Item Dupe
+local inf_dupe_row = CreateRow(DupeCard)
+inf_dupe_row.Label.Text = "🔄 Infinite Dupe"
+local inf_dupe_toggle = Toggle(inf_dupe_row, function()
+    local id = Duplicator:start_infinite_duplication("item", 1, 1)
+    return function()
+        Duplicator:stop_infinite_duplication(id)
+    end
+end, Theme.AccentPurple)
+
+-- Currency Duplication
+local currency_row = CreateRow(DupeCard)
+currency_row.Label.Text = "💰 Duplicate Currency"
+local currency_button = Button(currency_row, function()
+    Duplicator:duplicate_currency(game.Players.LocalPlayer, 1000)
+end)
+currency_button.Text = "Add 1000"
+
+-- Character Duplication
+local char_row = CreateRow(DupeCard)
+char_row.Label.Text = "👤 Duplicate Character"
+local char_button = Button(char_row, function()
+    Duplicator:duplicate_character(game.Players.LocalPlayer, 3)
+end)
+char_button.Text = "Clone!"
+
+-- MISC CARD
+local MiscCard = CreateCard()
+CreateSection(MiscCard).Text = "🔧 MISC"
+
+local farm_row = CreateRow(MiscCard)
+farm_row.Label.Text = "🌾 Auto Farm"
+local farm_toggle = Toggle(farm_row, function() return Hacks:auto_farm() end, Theme.Accent)
+
+local teleport_row = CreateRow(MiscCard)
+teleport_row.Label.Text = "📍 Teleport to Player"
+local teleport_input = Textbox(teleport_row, "Player name", function() end)
+
+local teleport_btn = Create("TextButton",{
+    AnchorPoint = Vector2.new(1,.5),
+    Position = UDim2.new(1,0,.5,0),
+    Size = UDim2.new(0,60,0,28),
+    BackgroundColor3 = Theme.AccentBlue,
+    BorderSizePixel = 0,
+    Text = "TP",
+    TextColor3 = Color3.fromRGB(255,255,255),
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    Parent = teleport_row
+})
+Corner(teleport_btn,8)
+
+teleport_btn.MouseButton1Click:Connect(function()
+    if teleport_input.Text ~= "" then
+        Hacks:teleport_to_player(teleport_input.Text)
+    end
+end)
+
+-- Kill All button
+local kill_row = CreateRow(MiscCard)
+kill_row.Label.Text = "💀 Kill All"
+local kill_button = Button(kill_row, function()
+    Hacks:kill_all()
+end)
+kill_button.Text = "Kill All!"
+
+-- Rejoin button
+local rejoin_row = CreateRow(MiscCard)
+rejoin_row.Label.Text = "🔄 Rejoin Game"
+local rejoin_button = Button(rejoin_row, function()
+    AntiDetection:rejoin()
+end)
+rejoin_button.Text = "Rejoin"
+
+-- Anti-Cheat toggle (on by default)
+local anti_row = CreateRow(MiscCard)
+anti_row.Label.Text = "🛡 Anti-Cheat Bypass"
+local anti_toggle = Toggle(anti_row, function()
+    AntiDetection:initialize()
+    return function()
+        AntiDetection:stop()
+    end
+end, Theme.Accent)
+
+-- ============================================
+-- SECTION 10: WINDOW DRAGGING & ANIMATION
+-- ============================================
+
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+Header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+Header.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+
+        Main.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- Open Animation
+Main.Size = UDim2.fromOffset(0,0)
+
+TweenService:Create(
+    Main,
+    TweenInfo.new(.25,Enum.EasingStyle.Quint),
+    {
+        Size = UDim2.fromOffset(760,470)
+    }
+):Play()
+
+-- ============================================
+-- SECTION 11: INITIALIZATION
+-- ============================================
+
+local function initialize()
+    print("⚡ KurbyHub v" .. Executor.version .. " loaded successfully!")
     print("📋 Features available:")
     print("  - Movement: Fly, Speed, Infinite Jump, No Clip, Bunny Hop")
-    print("  - Visuals: ESP, Wallhack, Chams, Name ESP, Tracers")
-    print("  - Combat: God Mode, Aimbot, Kill Aura, Spin Bot, Auto Click")
-    print("  - Misc: Auto Farm, Teleport, Kill All, Anti-Cheat Bypass")
+    print("  - Visuals: ESP, Wallhack, Chams")
+    print("  - Combat: God Mode, Aimbot, Kill Aura")
+    print("  - Duplication: Items, Currency, Character, Infinite Dupe")
+    print("  - Misc: Auto Farm, Teleport, Kill All, Rejoin")
+    print("🛡 Anti-Cheat bypass enabled by default!")
     
-    local success = pcall(function()
-        CommandUI:create_ui()
-    end)
-    if not success then
-        warn("Failed to create GUI. Using console-only mode.")
-    else
-        print("✅ Fishy's UI loaded successfully!")
-    end
+    -- Start anti-detection immediately
+    AntiDetection:initialize()
     
-    return {
-        execute = function(code) return Executor:execute(code) end,
-        duplicate = function(type, count) return Duplicator:duplicate(game.Players.LocalPlayer, type, count) end,
-        fly = function(speed) return Hacks:fly(speed) end,
-        speed = function(mult) return Hacks:speed(mult) end,
-        esp = function(color) return Hacks:esp(color) end,
-        kill_all = function() return Hacks:kill_all() end,
-        god = function() return Hacks:god_mode() end,
-        noclip = function() return Hacks:no_clip() end,
-        teleport = function(pos) return Hacks:teleport(pos) end,
-        aimbot = function() return Hacks:aimbot() end,
-        kill_aura = function(radius) return Hacks:kill_aura(radius) end,
-        auto_farm = function() return Hacks:auto_farm() end,
-        wallhack = function() return Hacks:wallhack() end,
-        bunny_hop = function() return Hacks:bunny_hop() end,
-        infinite_jump = function() return Hacks:infinite_jump() end,
-    }
+    print("\n" .. string.rep("=", 50))
+    print("🎮 KurbyHub Collection")
+    print(string.rep("=", 50))
+    print("1. 💻 GUI opens with 5 cards:")
+    print("   - MOVEMENT: Fly, Speed, Infinite Jump, No Clip, Bunny Hop")
+    print("   - VISUALS: ESP, Wallhack, Chams")
+    print("   - COMBAT: God Mode, Aimbot, Kill Aura")
+    print("   - DUPLICATION: Items, Currency, Character, Infinite Dupe")
+    print("   - MISC: Auto Farm, Teleport, Kill All, Rejoin")
+    print("2. 🔘 Click toggles to enable/disable hacks")
+    print("3. 🎯 All toggles are interactive with visual feedback")
+    print("4. 🛡 Anti-Cheat bypass is ON by default")
+    print(string.rep("=", 50))
 end
 
--- Run the executor
-local executor = initialize_executor()
+initialize()
 
-print("\n" .. string.rep("=", 50))
-print("🎮 Fishy's Collection")
-print(string.rep("=", 50))
-print("1. 💻 GUI opens automatically with tabs:")
-print("   - MOVEMENT: Fly, Speed, Infinite Jump, etc.")
-print("   - VISUALS: ESP, Wallhack, Chams, etc.")
-print("   - COMBAT: God Mode, Aimbot, Kill Aura, etc.")
-print("   - MISC: Auto Farm, Teleport, Kill All, etc.")
-print("2. 🔘 Click toggles to enable/disable hacks")
-print("3. 🎯 All toggles are interactive with visual feedback")
-print(string.rep("=", 50))
-
-return executor
+return {
+    execute = function(code) return Executor:execute(code) end,
+    duplicate = function(type, count) return Duplicator:duplicate(game.Players.LocalPlayer, type, count) end,
+    fly = function(speed) return Hacks:fly(speed) end,
+    speed = function(mult) return Hacks:speed(mult) end,
+    esp = function(color) return Hacks:esp(color) end,
+    kill_all = function() return Hacks:kill_all() end,
+    god = function() return Hacks:god_mode() end,
+    noclip = function() return Hacks:no_clip() end,
+    teleport = function(pos) return Hacks:teleport(pos) end,
+    aimbot = function() return Hacks:aimbot() end,
+    kill_aura = function(radius) return Hacks:kill_aura(radius) end,
+    auto_farm = function() return Hacks:auto_farm() end,
+    wallhack = function() return Hacks:wallhack() end,
+    bunny_hop = function() return Hacks:bunny_hop() end,
+    infinite_jump = function() return Hacks:infinite_jump() end,
+    start_dupe = function(type, interval, count) return Duplicator:start_infinite_duplication(type, interval, count) end,
+    stop_dupe = function(id) return Duplicator:stop_infinite_duplication(id) end,
+}
