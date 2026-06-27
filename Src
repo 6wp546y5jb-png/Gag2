@@ -1,9 +1,6 @@
 --[[
     ============================================
-    COMPLETE ROBLOX EXECUTOR SCRIPT
-    ============================================
-    ALL ORIGINAL CODE PRESERVED
-    FULLY DEOBFUSCATED
+    COMPLETE ROBLOX EXECUTOR SCRIPT - FIXED UI
     ============================================
 ]]
 
@@ -649,188 +646,490 @@ function AntiDetection:rejoin()
 end
 
 -- ============================================
--- SECTION 6: GUI COMMAND SYSTEM
+-- SECTION 6: GUI COMMAND SYSTEM - FIXED VERSION
 -- ============================================
 
 local CommandUI = {}
 
 function CommandUI:create_command_bar()
-    local screen = Instance.new("ScreenGui")
-    screen.Name = "ExecutorUI"
-    screen.Parent = game.Players.LocalPlayer.PlayerGui
+    local player = game.Players.LocalPlayer
+    if not player then return end
     
+    -- Create main GUI
+    local screen = Instance.new("ScreenGui")
+    screen.Name = "ExecutorUI_v3"
+    screen.Parent = player.PlayerGui
+    screen.ResetOnSpawn = false
+    
+    -- Main container with visible background
     local main = Instance.new("Frame")
-    main.Size = UDim2.new(0.4, 0, 0.5, 0)
-    main.Position = UDim2.new(0.3, 0, 0.25, 0)
-    main.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
-    main.BackgroundTransparency = 0.1
+    main.Size = UDim2.new(0, 600, 0, 700)
+    main.Position = UDim2.new(0.5, -300, 0.5, -350)
+    main.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
+    main.BackgroundTransparency = 0.05
     main.BorderSizePixel = 2
-    main.BorderColor3 = Color3.fromRGB(50, 50, 80)
+    main.BorderColor3 = Color3.fromRGB(80, 80, 150)
+    main.ClipsDescendants = true
     main.Parent = screen
     
+    -- Title Bar
     local title_bar = Instance.new("Frame")
-    title_bar.Size = UDim2.new(1, 0, 0.08, 0)
-    title_bar.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    title_bar.Size = UDim2.new(1, 0, 0, 40)
+    title_bar.BackgroundColor3 = Color3.fromRGB(35, 35, 55)
+    title_bar.BorderSizePixel = 0
     title_bar.Parent = main
     
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(0.8, 0, 1, 0)
-    title.Text = "EXECUTOR v3.2.1"
-    title.TextSize = 16
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.Position = UDim2.new(0.02, 0, 0, 0)
+    title.Text = "⚡ EXECUTOR v3.2.1 ⚡"
+    title.TextSize = 18
+    title.TextColor3 = Color3.fromRGB(150, 200, 255)
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
     title.Parent = title_bar
     
+    -- Close button
     local close = Instance.new("TextButton")
-    close.Size = UDim2.new(0.08, 0, 1, 0)
-    close.Position = UDim2.new(0.92, 0, 0, 0)
-    close.Text = "X"
-    close.TextSize = 14
+    close.Size = UDim2.new(0, 30, 1, 0)
+    close.Position = UDim2.new(1, -30, 0, 0)
+    close.Text = "✕"
+    close.TextSize = 16
     close.TextColor3 = Color3.fromRGB(255, 255, 255)
-    close.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    close.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    close.BorderSizePixel = 0
     close.Parent = title_bar
     close.MouseButton1Click:Connect(function()
         screen:Destroy()
     end)
     
+    -- Minimize button
     local minimize = Instance.new("TextButton")
-    minimize.Size = UDim2.new(0.08, 0, 1, 0)
-    minimize.Position = UDim2.new(0.84, 0, 0, 0)
-    minimize.Text = "_"
-    minimize.TextSize = 14
+    minimize.Size = UDim2.new(0, 30, 1, 0)
+    minimize.Position = UDim2.new(1, -60, 0, 0)
+    minimize.Text = "─"
+    minimize.TextSize = 16
     minimize.TextColor3 = Color3.fromRGB(255, 255, 255)
     minimize.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
+    minimize.BorderSizePixel = 0
     minimize.Parent = title_bar
     minimize.MouseButton1Click:Connect(function()
         main.Visible = not main.Visible
     end)
     
+    -- Tab buttons
+    local tab_frame = Instance.new("Frame")
+    tab_frame.Size = UDim2.new(1, 0, 0, 35)
+    tab_frame.Position = UDim2.new(0, 0, 0, 40)
+    tab_frame.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
+    tab_frame.BorderSizePixel = 0
+    tab_frame.Parent = main
+    
+    local tabs = {"Main", "Hacks", "Duplication", "Settings"}
+    local tab_buttons = {}
+    
+    for i, tab_name in ipairs(tabs) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.25, 0, 1, 0)
+        btn.Position = UDim2.new((i-1) * 0.25, 0, 0, 0)
+        btn.Text = tab_name
+        btn.TextSize = 14
+        btn.TextColor3 = Color3.fromRGB(200, 200, 220)
+        btn.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+        btn.BorderSizePixel = 1
+        btn.BorderColor3 = Color3.fromRGB(50, 50, 80)
+        btn.Parent = tab_frame
+        tab_buttons[tab_name] = btn
+    end
+    
+    -- Main content area
+    local content = Instance.new("Frame")
+    content.Size = UDim2.new(1, 0, 1, -75)
+    content.Position = UDim2.new(0, 0, 0, 75)
+    content.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
+    content.BorderSizePixel = 0
+    content.Parent = main
+    
+    -- ==================== TAB 1: MAIN ====================
+    local main_tab = Instance.new("Frame")
+    main_tab.Size = UDim2.new(1, 0, 1, 0)
+    main_tab.BackgroundTransparency = 1
+    main_tab.Parent = content
+    
+    -- Input area
+    local input_frame = Instance.new("Frame")
+    input_frame.Size = UDim2.new(0.95, 0, 0.35, 0)
+    input_frame.Position = UDim2.new(0.025, 0, 0.02, 0)
+    input_frame.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
+    input_frame.BorderSizePixel = 1
+    input_frame.BorderColor3 = Color3.fromRGB(50, 50, 80)
+    input_frame.Parent = main_tab
+    
+    local input_label = Instance.new("TextLabel")
+    input_label.Size = UDim2.new(1, 0, 0, 25)
+    input_label.Text = "📝 Input Script"
+    input_label.TextSize = 14
+    input_label.TextColor3 = Color3.fromRGB(150, 200, 255)
+    input_label.BackgroundTransparency = 1
+    input_label.TextXAlignment = Enum.TextXAlignment.Left
+    input_label.Parent = input_frame
+    
     local input = Instance.new("TextBox")
-    input.Size = UDim2.new(0.95, 0, 0.15, 0)
-    input.Position = UDim2.new(0.025, 0, 0.12, 0)
-    input.PlaceholderText = "Enter Lua script or command here..."
+    input.Size = UDim2.new(0.98, 0, 0.7, 0)
+    input.Position = UDim2.new(0.01, 0, 0.25, 0)
+    input.PlaceholderText = "Enter Lua script or /command here..."
     input.Text = ""
-    input.TextColor3 = Color3.fromRGB(200, 200, 200)
-    input.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    input.TextColor3 = Color3.fromRGB(200, 200, 220)
+    input.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
     input.TextWrapped = true
     input.MultiLine = true
     input.ClearTextOnFocus = false
-    input.Parent = main
+    input.Font = Enum.Font.Code
+    input.TextSize = 13
+    input.Parent = input_frame
     
-    local output = Instance.new("TextBox")
-    output.Size = UDim2.new(0.95, 0, 0.25, 0)
-    output.Position = UDim2.new(0.025, 0, 0.5, 0)
-    output.Text = "Executor ready!\nType /help for commands"
-    output.TextColor3 = Color3.fromRGB(150, 200, 255)
-    output.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
-    output.TextWrapped = true
-    output.MultiLine = true
-    output.ReadOnly = true
-    output.Parent = main
-    
-    local exec = Instance.new("TextButton")
-    exec.Size = UDim2.new(0.2, 0, 0.07, 0)
-    exec.Position = UDim2.new(0.4, 0, 0.29, 0)
-    exec.Text = "EXECUTE"
-    exec.TextSize = 14
-    exec.TextColor3 = Color3.fromRGB(255, 255, 255)
-    exec.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
-    exec.Parent = main
-    exec.MouseButton1Click:Connect(function()
+    -- Execute button
+    local exec_btn = Instance.new("TextButton")
+    exec_btn.Size = UDim2.new(0.15, 0, 0.2, 0)
+    exec_btn.Position = UDim2.new(0.425, 0, 0.78, 0)
+    exec_btn.Text = "▶ EXECUTE"
+    exec_btn.TextSize = 14
+    exec_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    exec_btn.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+    exec_btn.BorderSizePixel = 0
+    exec_btn.Parent = input_frame
+    exec_btn.MouseButton1Click:Connect(function()
         if input.Text ~= "" then
-            local success, result = Executor:execute(input.Text)
-            if success then
-                output.Text = output.Text .. "\n> " .. tostring(result or "Success!")
+            local text = input.Text
+            if text:match("^/") then
+                process_command(text)
             else
-                output.Text = output.Text .. "\n! Error: " .. tostring(result)
+                local success, result = Executor:execute(text)
+                if success then
+                    output.Text = output.Text .. "\n> " .. tostring(result or "Success!")
+                else
+                    output.Text = output.Text .. "\n! Error: " .. tostring(result)
+                end
             end
             input.Text = ""
         end
     end)
     
-    local quick_frame = Instance.new("Frame")
-    quick_frame.Size = UDim2.new(0.95, 0, 0.1, 0)
-    quick_frame.Position = UDim2.new(0.025, 0, 0.38, 0)
-    quick_frame.BackgroundTransparency = 1
-    quick_frame.Parent = main
+    -- Output area
+    local output_frame = Instance.new("Frame")
+    output_frame.Size = UDim2.new(0.95, 0, 0.58, 0)
+    output_frame.Position = UDim2.new(0.025, 0, 0.40, 0)
+    output_frame.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
+    output_frame.BorderSizePixel = 1
+    output_frame.BorderColor3 = Color3.fromRGB(50, 50, 80)
+    output_frame.Parent = main_tab
     
-    local quick_buttons = {
-        {"FLY", function() Hacks:fly(50) end},
-        {"SPEED", function() Hacks:speed(3) end},
-        {"ESP", function() Hacks:esp(Color3.fromRGB(255,0,0)) end},
-        {"KILL ALL", function() Hacks:kill_all() end},
-        {"GOD", function() Hacks:god_mode() end},
-        {"NOCLIP", function() Hacks:no_clip() end},
+    local output_label = Instance.new("TextLabel")
+    output_label.Size = UDim2.new(1, 0, 0, 25)
+    output_label.Text = "📤 Output"
+    output_label.TextSize = 14
+    output_label.TextColor3 = Color3.fromRGB(150, 200, 255)
+    output_label.BackgroundTransparency = 1
+    output_label.TextXAlignment = Enum.TextXAlignment.Left
+    output_label.Parent = output_frame
+    
+    local output = Instance.new("TextBox")
+    output.Size = UDim2.new(0.98, 0, 0.85, 0)
+    output.Position = UDim2.new(0.01, 0, 0.12, 0)
+    output.Text = "⚡ Executor v" .. Executor.version .. " loaded!\nType /help for commands"
+    output.TextColor3 = Color3.fromRGB(150, 200, 255)
+    output.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
+    output.TextWrapped = true
+    output.MultiLine = true
+    output.ReadOnly = true
+    output.Font = Enum.Font.Code
+    output.TextSize = 12
+    output.Parent = output_frame
+    
+    -- Clear output button
+    local clear_btn = Instance.new("TextButton")
+    clear_btn.Size = UDim2.new(0.08, 0, 0.15, 0)
+    clear_btn.Position = UDim2.new(0.9, 0, 0.02, 0)
+    clear_btn.Text = "Clear"
+    clear_btn.TextSize = 11
+    clear_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    clear_btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    clear_btn.BorderSizePixel = 0
+    clear_btn.Parent = output_frame
+    clear_btn.MouseButton1Click:Connect(function()
+        output.Text = ""
+    end)
+    
+    -- ==================== TAB 2: HACKS ====================
+    local hacks_tab = Instance.new("Frame")
+    hacks_tab.Size = UDim2.new(1, 0, 1, 0)
+    hacks_tab.BackgroundTransparency = 1
+    hacks_tab.Visible = false
+    hacks_tab.Parent = content
+    
+    local hack_buttons = {
+        {"✈ Fly", function() Hacks:fly(50) end, Color3.fromRGB(50, 150, 255)},
+        {"⚡ Speed (x3)", function() Hacks:speed(3) end, Color3.fromRGB(255, 200, 50)},
+        {"👁 ESP", function() Hacks:esp(Color3.fromRGB(255, 0, 0)) end, Color3.fromRGB(255, 50, 50)},
+        {"💀 Kill All", function() 
+            local killed = Hacks:kill_all()
+            output.Text = output.Text .. "\n> Killed: " .. table.concat(killed, ", ")
+        end, Color3.fromRGB(200, 50, 50)},
+        {"🛡 God Mode", function() Hacks:god_mode() end, Color3.fromRGB(50, 200, 50)},
+        {"🚫 No Clip", function() Hacks:no_clip() end, Color3.fromRGB(200, 200, 50)},
+        {"🔄 Infinite Jump", function() Hacks:infinite_jump() end, Color3.fromRGB(150, 50, 255)},
+        {"📍 Teleport", function()
+            -- Simple teleport to center of map
+            Hacks:teleport(Vector3.new(0, 50, 0))
+            output.Text = output.Text .. "\n> Teleported to center"
+        end, Color3.fromRGB(50, 200, 200)},
     }
     
-    for i, btn_data in ipairs(quick_buttons) do
+    for i, hack_data in ipairs(hack_buttons) do
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.15, 0, 1, 0)
-        btn.Position = UDim2.new((i-1) * 0.16, 0, 0, 0)
-        btn.Text = btn_data[1]
-        btn.TextSize = 12
+        btn.Size = UDim2.new(0.3, 0, 0.15, 0)
+        btn.Position = UDim2.new(
+            0.025 + ((i-1) % 3) * 0.325,
+            0,
+            0.05 + math.floor((i-1) / 3) * 0.18,
+            0
+        )
+        btn.Text = hack_data[1]
+        btn.TextSize = 14
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
-        btn.Parent = quick_frame
-        btn.MouseButton1Click:Connect(btn_data[2])
+        btn.BackgroundColor3 = hack_data[3]
+        btn.BorderSizePixel = 1
+        btn.BorderColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Parent = hacks_tab
+        btn.MouseButton1Click:Connect(hack_data[2])
     end
     
+    -- Player teleport section
+    local tp_frame = Instance.new("Frame")
+    tp_frame.Size = UDim2.new(0.95, 0, 0.15, 0)
+    tp_frame.Position = UDim2.new(0.025, 0, 0.82, 0)
+    tp_frame.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
+    tp_frame.BorderSizePixel = 1
+    tp_frame.BorderColor3 = Color3.fromRGB(50, 50, 80)
+    tp_frame.Parent = hacks_tab
+    
+    local tp_label = Instance.new("TextLabel")
+    tp_label.Size = UDim2.new(0.2, 0, 1, 0)
+    tp_label.Text = "TP to:"
+    tp_label.TextSize = 14
+    tp_label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tp_label.BackgroundTransparency = 1
+    tp_label.Parent = tp_frame
+    
+    local tp_input = Instance.new("TextBox")
+    tp_input.Size = UDim2.new(0.4, 0, 0.6, 0)
+    tp_input.Position = UDim2.new(0.2, 0, 0.2, 0)
+    tp_input.PlaceholderText = "Player name"
+    tp_input.Text = ""
+    tp_input.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tp_input.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
+    tp_input.Parent = tp_frame
+    
+    local tp_btn = Instance.new("TextButton")
+    tp_btn.Size = UDim2.new(0.15, 0, 0.6, 0)
+    tp_btn.Position = UDim2.new(0.6, 0, 0.2, 0)
+    tp_btn.Text = "TP!"
+    tp_btn.TextSize = 14
+    tp_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tp_btn.BackgroundColor3 = Color3.fromRGB(50, 150, 255)
+    tp_btn.BorderSizePixel = 0
+    tp_btn.Parent = tp_frame
+    tp_btn.MouseButton1Click:Connect(function()
+        if tp_input.Text ~= "" then
+            Hacks:teleport_to_player(tp_input.Text)
+            output.Text = output.Text .. "\n> Teleported to " .. tp_input.Text
+            tp_input.Text = ""
+        end
+    end)
+    
+    -- ==================== TAB 3: DUPLICATION ====================
     local dup_tab = Instance.new("Frame")
-    dup_tab.Size = UDim2.new(0.95, 0, 0.25, 0)
-    dup_tab.Position = UDim2.new(0.025, 0, 0.78, 0)
+    dup_tab.Size = UDim2.new(1, 0, 1, 0)
     dup_tab.BackgroundTransparency = 1
-    dup_tab.Parent = main
+    dup_tab.Visible = false
+    dup_tab.Parent = content
     
-    local dup_label = Instance.new("TextLabel")
-    dup_label.Size = UDim2.new(0.2, 0, 1, 0)
-    dup_label.Text = "Duplication:"
-    dup_label.TextSize = 14
-    dup_label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    dup_label.BackgroundTransparency = 1
-    dup_label.Parent = dup_tab
+    local dup_types = {"item", "character", "object", "currency", "gui", "script"}
+    local dup_btns = {}
     
-    local dup_input = Instance.new("TextBox")
-    dup_input.Size = UDim2.new(0.3, 0, 0.6, 0)
-    dup_input.Position = UDim2.new(0.2, 0, 0.2, 0)
-    dup_input.PlaceholderText = "Item/type"
-    dup_input.Text = ""
-    dup_input.TextColor3 = Color3.fromRGB(255, 255, 255)
-    dup_input.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-    dup_input.Parent = dup_tab
-    
-    local dup_count = Instance.new("TextBox")
-    dup_count.Size = UDim2.new(0.1, 0, 0.6, 0)
-    dup_count.Position = UDim2.new(0.5, 0, 0.2, 0)
-    dup_count.PlaceholderText = "Count"
-    dup_count.Text = "1"
-    dup_count.TextColor3 = Color3.fromRGB(255, 255, 255)
-    dup_count.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-    dup_count.Parent = dup_tab
-    
-    local dup_btn = Instance.new("TextButton")
-    dup_btn.Size = UDim2.new(0.15, 0, 0.6, 0)
-    dup_btn.Position = UDim2.new(0.6, 0, 0.2, 0)
-    dup_btn.Text = "DUP!"
-    dup_btn.TextSize = 12
-    dup_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    dup_btn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-    dup_btn.Parent = dup_tab
-    dup_btn.MouseButton1Click:Connect(function()
-        local type = dup_input.Text:lower()
-        local count = tonumber(dup_count.Text) or 1
+    for i, type in ipairs(dup_types) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.3, 0, 0.12, 0)
+        btn.Position = UDim2.new(
+            0.025 + ((i-1) % 3) * 0.325,
+            0,
+            0.05 + math.floor((i-1) / 3) * 0.15,
+            0
+        )
+        btn.Text = "📦 " .. type
+        btn.TextSize = 14
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
+        btn.BorderSizePixel = 1
+        btn.BorderColor3 = Color3.fromRGB(80, 80, 150)
+        btn.Parent = dup_tab
+        dup_btns[type] = btn
         
-        if type ~= "" then
+        btn.MouseButton1Click:Connect(function()
+            local count = tonumber(dup_count.Text) or 1
             local result = Duplicator:duplicate(game.Players.LocalPlayer, type, count)
             if result then
                 output.Text = output.Text .. "\n> Duplicated " .. count .. " " .. type .. "(s)"
             else
                 output.Text = output.Text .. "\n! Failed to duplicate " .. type
             end
-        end
+        end)
+    end
+    
+    -- Duplication controls
+    local dup_controls = Instance.new("Frame")
+    dup_controls.Size = UDim2.new(0.95, 0, 0.15, 0)
+    dup_controls.Position = UDim2.new(0.025, 0, 0.82, 0)
+    dup_controls.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
+    dup_controls.BorderSizePixel = 1
+    dup_controls.BorderColor3 = Color3.fromRGB(50, 50, 80)
+    dup_controls.Parent = dup_tab
+    
+    local dup_label = Instance.new("TextLabel")
+    dup_label.Size = UDim2.new(0.15, 0, 1, 0)
+    dup_label.Text = "Count:"
+    dup_label.TextSize = 14
+    dup_label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dup_label.BackgroundTransparency = 1
+    dup_label.Parent = dup_controls
+    
+    local dup_count = Instance.new("TextBox")
+    dup_count.Size = UDim2.new(0.1, 0, 0.6, 0)
+    dup_count.Position = UDim2.new(0.15, 0, 0.2, 0)
+    dup_count.PlaceholderText = "1"
+    dup_count.Text = "1"
+    dup_count.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dup_count.BackgroundColor3 = Color3.fromRGB(10, 10, 25)
+    dup_count.Parent = dup_controls
+    
+    local infinite_dup_btn = Instance.new("TextButton")
+    infinite_dup_btn.Size = UDim2.new(0.2, 0, 0.6, 0)
+    infinite_dup_btn.Position = UDim2.new(0.3, 0, 0.2, 0)
+    infinite_dup_btn.Text = "♾ Infinite"
+    infinite_dup_btn.TextSize = 12
+    infinite_dup_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    infinite_dup_btn.BackgroundColor3 = Color3.fromRGB(200, 50, 200)
+    infinite_dup_btn.BorderSizePixel = 0
+    infinite_dup_btn.Parent = dup_controls
+    infinite_dup_btn.MouseButton1Click:Connect(function()
+        local type = "item" -- default
+        Duplicator:start_infinite_duplication(type)
+        output.Text = output.Text .. "\n> Infinite duplication started for " .. type
     end)
     
-    local help_text = [[
+    -- ==================== TAB 4: SETTINGS ====================
+    local settings_tab = Instance.new("Frame")
+    settings_tab.Size = UDim2.new(1, 0, 1, 0)
+    settings_tab.BackgroundTransparency = 1
+    settings_tab.Visible = false
+    settings_tab.Parent = content
+    
+    local settings_buttons = {
+        {"🔄 Rejoin Game", function() 
+            AntiDetection:rejoin()
+            output.Text = output.Text .. "\n> Rejoining..."
+        end, Color3.fromRGB(255, 150, 50)},
+        {"🛡 Bypass Ban", function() 
+            AntiDetection:bypass_ban()
+            output.Text = output.Text .. "\n> Bypass attempted"
+        end, Color3.fromRGB(50, 200, 50)},
+        {"🚫 Disable Anti-Cheat", function() 
+            local disabled = AntiDetection:disable_anti_cheat()
+            output.Text = output.Text .. "\n> Disabled " .. #disabled .. " anti-cheat scripts"
+        end, Color3.fromRGB(200, 50, 50)},
+        {"🔒 Spoof Client", function() 
+            AntiDetection:spoof_client()
+            output.Text = output.Text .. "\n> Client spoofed"
+        end, Color3.fromRGB(50, 150, 255)},
+        {"🗑 Clear Output", function()
+            output.Text = ""
+        end, Color3.fromRGB(100, 100, 100)},
+    }
+    
+    for i, setting_data in ipairs(settings_buttons) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.45, 0, 0.12, 0)
+        btn.Position = UDim2.new(
+            0.025 + ((i-1) % 2) * 0.5,
+            0,
+            0.05 + math.floor((i-1) / 2) * 0.15,
+            0
+        )
+        btn.Text = setting_data[1]
+        btn.TextSize = 14
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.BackgroundColor3 = setting_data[3]
+        btn.BorderSizePixel = 1
+        btn.BorderColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Parent = settings_tab
+        btn.MouseButton1Click:Connect(setting_data[2])
+    end
+    
+    -- Version info
+    local version_label = Instance.new("TextLabel")
+    version_label.Size = UDim2.new(1, 0, 0.1, 0)
+    version_label.Position = UDim2.new(0, 0, 0.88, 0)
+    version_label.Text = "Executor v" .. Executor.version .. " | Made with ❤️"
+    version_label.TextSize = 12
+    version_label.TextColor3 = Color3.fromRGB(100, 100, 150)
+    version_label.BackgroundTransparency = 1
+    version_label.Parent = settings_tab
+    
+    -- ==================== TAB SWITCHING ====================
+    local function switch_tab(tab_name)
+        -- Hide all tabs
+        main_tab.Visible = false
+        hacks_tab.Visible = false
+        dup_tab.Visible = false
+        settings_tab.Visible = false
+        
+        -- Show selected tab
+        if tab_name == "Main" then
+            main_tab.Visible = true
+        elseif tab_name == "Hacks" then
+            hacks_tab.Visible = true
+        elseif tab_name == "Duplication" then
+            dup_tab.Visible = true
+        elseif tab_name == "Settings" then
+            settings_tab.Visible = true
+        end
+        
+        -- Update tab button colors
+        for name, btn in pairs(tab_buttons) do
+            if name == tab_name then
+                btn.BackgroundColor3 = Color3.fromRGB(60, 60, 120)
+                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            else
+                btn.BackgroundColor3 = Color3.fromRGB(30, 30, 55)
+                btn.TextColor3 = Color3.fromRGB(200, 200, 220)
+            end
+        end
+    end
+    
+    for name, btn in pairs(tab_buttons) do
+        btn.MouseButton1Click:Connect(function()
+            switch_tab(name)
+        end)
+    end
+    
+    -- Default to Main tab
+    switch_tab("Main")
+    
+    -- ==================== COMMAND PROCESSOR ====================
+    local function process_command(cmd)
+        if cmd:match("^/help") then
+            local help_text = [[
 === COMMANDS ===
 /help          - Show this help
 /execute <code> - Execute Lua code
@@ -849,10 +1148,7 @@ function CommandUI:create_command_bar()
 
 === DUPLICATION TYPES ===
 item, character, object, currency, gui, script
-    ]]
-    
-    local function process_command(cmd)
-        if cmd:match("^/help") then
+            ]]
             output.Text = help_text
         elseif cmd:match("^/execute ") then
             local code = cmd:gsub("^/execute ", "")
@@ -913,28 +1209,11 @@ item, character, object, currency, gui, script
         end
     end
     
-    input.FocusLost:Connect(function(enter_pressed)
-        if enter_pressed and input.Text ~= "" then
-            local text = input.Text
-            if text:match("^/") then
-                process_command(text)
-            else
-                local success, result = Executor:execute(text)
-                if success then
-                    output.Text = output.Text .. "\n> " .. tostring(result or "Success!")
-                else
-                    output.Text = output.Text .. "\n! Error: " .. tostring(result)
-                end
-            end
-            input.Text = ""
-        end
-    end)
-    
     return screen
 end
 
 -- ============================================
--- SECTION 7: SCRIPT LOADER (FIXED)
+-- SECTION 7: SCRIPT LOADER
 -- ============================================
 
 local ScriptLoader = {}
@@ -971,7 +1250,6 @@ function ScriptLoader:load_from_workspace(script_name)
 end
 
 function ScriptLoader:load_from_file(path)
-    -- Note: This requires a file system API which may not be available in all executors
     local success, content = pcall(function()
         return readfile(path)
     end)
@@ -986,20 +1264,22 @@ end
 -- ============================================
 
 local function initialize_executor()
-    print("Executor v" .. Executor.version .. " loaded successfully!")
-    print("Type /help for commands")
-    print("Features available:")
-    print("- Execution engine")
-    print("- Duplication system")
-    print("- Hack features (fly, speed, esp, etc.)")
-    print("- Anti-detection")
-    print("- GUI interface")
+    print("⚡ Executor v" .. Executor.version .. " loaded successfully!")
+    print("📋 Type /help for commands")
+    print("🎯 Features available:")
+    print("  - Execution engine")
+    print("  - Duplication system")
+    print("  - Hack features (fly, speed, esp, etc.)")
+    print("  - Anti-detection")
+    print("  - GUI interface with tabs")
     
     local success = pcall(function()
         CommandUI:create_command_bar()
     end)
     if not success then
-        print("Failed to create GUI. Using console-only mode.")
+        warn("Failed to create GUI. Using console-only mode.")
+    else
+        print("✅ GUI loaded successfully!")
     end
     
     return {
@@ -1021,13 +1301,17 @@ end
 -- Run the executor
 local executor = initialize_executor()
 
-print("\n=== EXECUTOR USAGE ===")
-print("1. GUI: Opens automatically with command bar")
-print("2. Console: Use 'executor:execute(code)' to run scripts")
-print("3. Commands: Type '/' in the GUI or console")
-print("4. Quick buttons: Fly, Speed, ESP, Kill All, God, Noclip")
-print("5. Duplication: Use the GUI tab or /duplicate command")
-print("6. Type /help for full command list")
-print("========================\n")
+print("\n" .. string.rep("=", 50))
+print("🎮 EXECUTOR USAGE")
+print(string.rep("=", 50))
+print("1. 💻 GUI: Opens automatically with 4 tabs")
+print("   - Main: Script execution with input/output")
+print("   - Hacks: Quick hack buttons")
+print("   - Duplication: Duplicate various items")
+print("   - Settings: Anti-detection tools")
+print("2. ⌨️ Commands: Type '/' in the input box")
+print("3. 🚀 Quick buttons: Click any button to activate")
+print("4. 📝 Type /help for full command list")
+print(string.rep("=", 50))
 
 return executor
