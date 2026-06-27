@@ -1,26 +1,34 @@
 --[[
     ============================================
-    KURBY HUB - COMPLETE UI WITH ALL FEATURES (FIXED COLORS)
+    KURBY HUB - COMPLETE UI WITH ALL FEATURES (MODERNIZED)
     ============================================
 ]]
 
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 -- ============================================
--- SECTION 1: THEME & UI COMPONENTS (BRIGHTER)
+-- SECTION 1: THEME & UI COMPONENTS
 -- ============================================
 
 local Theme = {
-    Background = Color3.fromRGB(30,30,35),      -- Dark but not black
-    Sidebar = Color3.fromRGB(40,40,45),         -- Slightly lighter
-    Card = Color3.fromRGB(45,45,50),            -- Visible cards
-    Accent = Color3.fromRGB(0,200,255),         -- Bright cyan
-    AccentRed = Color3.fromRGB(255,80,80),      -- Bright red
-    AccentBlue = Color3.fromRGB(80,160,255),    -- Bright blue
-    AccentYellow = Color3.fromRGB(255,210,50),  -- Bright yellow
-    AccentPurple = Color3.fromRGB(180,80,255),  -- Bright purple
-    Secondary = Color3.fromRGB(60,60,65),       -- For toggle backgrounds
-    Border = Color3.fromRGB(70,70,75),          -- Visible borders
-    Text = Color3.fromRGB(255,255,255),         -- Pure white text
-    TextDim = Color3.fromRGB(180,180,180)       -- Dimmer text
+    Background = Color3.fromRGB(13,13,15),
+    Sidebar = Color3.fromRGB(18,18,22),
+    Card = Color3.fromRGB(18,18,22),
+    Accent = Color3.fromRGB(168,85,247),
+    AccentRed = Color3.fromRGB(255,70,70),
+    AccentBlue = Color3.fromRGB(70,150,255),
+    AccentYellow = Color3.fromRGB(255,200,50),
+    AccentPurple = Color3.fromRGB(168,85,247),
+    Secondary = Color3.fromRGB(35,35,40),
+    Border = Color3.fromRGB(28,28,32),
+    Text = Color3.fromRGB(210,210,215)
 }
 
 local function Create(class,props,parent)
@@ -43,11 +51,6 @@ local function Stroke(obj)
         Transparency=0
     },obj)
 end
-
-local UIS = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
 
 -- ============================================
 -- SECTION 2: CORE EXECUTOR ENGINE
@@ -356,6 +359,15 @@ end
 -- SECTION 4: HACK FEATURES
 -- ============================================
 
+local humanoid, hrp
+local function setupCharacter(char)
+    if not char then return end
+    humanoid = char:WaitForChild("Humanoid")
+    hrp = char:WaitForChild("HumanoidRootPart")
+end
+setupCharacter(LocalPlayer.Character)
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
 local Hacks = {
     active = {
         fly = false,
@@ -376,10 +388,19 @@ local Hacks = {
         reach = false,
         tp_others = false,
         directional_jump = false,
-        air_move = false
+        air_move = false,
+        hitbox_expander = false,
+        fps_booster = false
     },
     functions = {}
 }
+
+-- Global States for Modern UI
+_G.CurrentHitboxScale = 5.0
+_G.HitboxEnabled = false
+_G.DirectionalJump = true
+_G.AirMoveEnabled = false
+_G.AirMoveSpeed = 50
 
 -- FLY HACK
 function Hacks:fly(speed)
@@ -1192,7 +1213,8 @@ function Hacks:air_move()
                         move_dir = move_dir - hrp.CFrame.RightVector
                     end
                     if UIS:IsKeyDown(Enum.KeyCode.D) then
-                        move_dir = move_dir + hrp.CFrame.RightVector                    end
+                        move_dir = move_dir + hrp.CFrame.RightVector
+                    end
                     
                     if move_dir.Magnitude > 0 then
                         hrp.Velocity = Vector3.new(move_dir.Unit.X * 30, hrp.Velocity.Y, move_dir.Unit.Z * 30)
@@ -1242,6 +1264,62 @@ function Hacks:anti_fall()
     return self.functions.anti_fall
 end
 
+-- HITBOX EXPANDER
+function Hacks:hitbox_expander(scale)
+    scale = scale or 5.0
+    
+    if self.active.hitbox_expander then
+        self.active.hitbox_expander = false
+        if self.functions.hitbox_expander then
+            self.functions.hitbox_expander()
+            self.functions.hitbox_expander = nil
+        end
+        return false
+    end
+    
+    self.active.hitbox_expander = true
+    _G.HitboxEnabled = true
+    _G.CurrentHitboxScale = scale
+    
+    self.functions.hitbox_expander = function()
+        _G.HitboxEnabled = false
+        self.active.hitbox_expander = false
+        self.functions.hitbox_expander = nil
+    end
+    
+    return self.functions.hitbox_expander
+end
+
+-- FPS BOOSTER
+function Hacks:fps_booster(target_fps)
+    target_fps = target_fps or 999
+    
+    if self.active.fps_booster then
+        self.active.fps_booster = false
+        if self.functions.fps_booster then
+            self.functions.fps_booster()
+            self.functions.fps_booster = nil
+        end
+        return false
+    end
+    
+    self.active.fps_booster = true
+    
+    self.functions.fps_booster = function()
+        if setfpscap then
+            setfpscap(60)
+        end
+        self.active.fps_booster = false
+        self.functions.fps_booster = nil
+    end
+    
+    if setfpscap then
+        setfpscap(target_fps)
+    end
+    
+    return self.functions.fps_booster
+end
+
 -- ============================================
 -- SECTION 5: DETECTION EVASION (Enabled by Default)
 -- ============================================
@@ -1283,406 +1361,424 @@ end
 -- SECTION 6: CREATE MAIN UI
 -- ============================================
 
-local Gui = Create("ScreenGui",{
+local ScreenGui = Create("ScreenGui",{
     Name="KurbyHub",
     ResetOnSpawn=false,
     IgnoreGuiInset=true,
     ZIndexBehavior=Enum.ZIndexBehavior.Sibling
 },LocalPlayer.PlayerGui)
 
--- Main Frame (with background for visibility)
+-- Main Frame
 local Main = Create("Frame",{
     AnchorPoint=Vector2.new(.5,.5),
     Position=UDim2.fromScale(.5,.5),
-    Size=UDim2.fromOffset(760,470),
+    Size=UDim2.fromOffset(520,380),
     BackgroundColor3=Theme.Background,
     BorderSizePixel=0,
     Visible=true,
     Active=true,
-    ClipsDescendants=false
-},Gui)
+    ClipsDescendants=true
+},ScreenGui)
 
-Corner(Main,14)
+Corner(Main,12)
 Stroke(Main)
 
--- Add a subtle glow/outline effect
-local Glow = Create("Frame",{
-    Size=UDim2.fromOffset(764,474),
-    Position=UDim2.fromOffset(-2,-2),
-    BackgroundTransparency=1,
-    BorderSizePixel=0,
-    Parent=Main
-})
-Create("UIStroke",{
-    Color=Color3.fromRGB(0,200,255),
-    Thickness=2,
-    Transparency=0.3
-},Glow)
-Corner(Glow,16)
+-- Smooth Dragging System
+local dragging, dragInput, dragStart, startPos
+local function update(input)
+    local delta = input.Position - dragStart
+    local targetPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    TweenService:Create(Main, TweenInfo.new(0.08, Enum.EasingStyle.Out), {Position = targetPos}):Play()
+end
 
--- Sidebar (decorative)
+Main.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+
+Main.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseBehavior or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then update(input) end
+end)
+
+-- Sidebar
 local Sidebar = Create("Frame",{
-    Size=UDim2.fromOffset(70,470),
+    Size=UDim2.fromOffset(65,380),
     BackgroundColor3=Theme.Sidebar,
     BorderSizePixel=0
 },Main)
-Corner(Sidebar,14)
+Corner(Sidebar,12)
 
--- Add sidebar icon
-Create("TextLabel",{
-    Position=UDim2.new(.5,.5),
-    AnchorPoint=Vector2.new(.5,.5),
+local SidebarStroke = Create("UIStroke",{
+    Thickness=1,
+    Color=Theme.Border
+},Sidebar)
+
+-- Logo
+local Logo = Create("TextLabel",{
     Size=UDim2.fromOffset(40,40),
+    Position=UDim2.new(0.5,-20,0,15),
     BackgroundTransparency=1,
-    Text="⚡",
+    Text="K",
     TextColor3=Theme.Accent,
     Font=Enum.Font.GothamBold,
-    TextSize=30,
-    Parent=Sidebar
-})
+    TextSize=24
+},Sidebar)
 
--- Header (for dragging)
-local Header = Create("Frame",{
-    Position=UDim2.new(0,82,0,0),
-    Size=UDim2.new(1,-94,0,58),
-    BackgroundTransparency=0,
-    BackgroundColor3=Theme.Background,
-    BorderSizePixel=0,
-    ZIndex=10
-},Main)
-
--- Add a subtle divider line under header
-Create("Frame",{
-    Position=UDim2.new(0,0,1,0),
-    Size=UDim2.new(1,0,0,1),
-    BackgroundColor3=Theme.Border,
-    BorderSizePixel=0,
-    Parent=Header
-})
-
--- Content Area
-local Content = Create("ScrollingFrame",{
-    Position=UDim2.new(0,82,0,70),
-    Size=UDim2.new(1,-94,1,-82),
+-- FPS Counter
+local fpsLabel = Create("TextLabel",{
+    Size=UDim2.fromOffset(100,20),
+    Position=UDim2.new(1,-165,0,15),
     BackgroundTransparency=1,
-    AutomaticCanvasSize=Enum.AutomaticSize.Y,
-    ScrollBarThickness=4,
-    CanvasSize=UDim2.new(0,0,0,0),
-    BorderSizePixel=0,
-    ClipsDescendants=true,
-    ScrollBarImageColor3=Theme.Accent,
-    ScrollBarImageTransparency=0.3,
-    BottomImage=Color3.fromRGB(0,0,0)
-},Main)
-
--- Title text
-Create("TextLabel",{
-    Position=UDim2.new(0,90,0,0),
-    Size=UDim2.new(0,200,1,0),
-    BackgroundTransparency=1,
-    Text="⚡ KURBY HUB",
     TextColor3=Theme.Accent,
     Font=Enum.Font.GothamBold,
-    TextSize=22,
-    TextXAlignment=Enum.TextXAlignment.Left,
-    Parent=Header
-})
-
-Create("TextLabel",{
-    Position=UDim2.new(1,-80,0,0),
-    Size=UDim2.new(0,70,1,0),
-    BackgroundTransparency=1,
-    Text="v"..Executor.version,
-    TextColor3=Theme.TextDim,
-    Font=Enum.Font.Gotham,
     TextSize=12,
     TextXAlignment=Enum.TextXAlignment.Right,
-    Parent=Header
-})
+    Text="FPS: --"
+},Main)
 
-Create("UIListLayout",{
-    Padding=UDim.new(0,12),
-    HorizontalAlignment=Enum.HorizontalAlignment.Center
-},Content)
+-- Header Title
+local TitleLabel = Create("TextLabel",{
+    Size=UDim2.fromOffset(200,20),
+    Position=UDim2.new(0,80,0,15),
+    BackgroundTransparency=1,
+    Text="Kurby Hub",
+    TextColor3=Color3.fromRGB(255,255,255),
+    Font=Enum.Font.GothamBold,
+    TextSize=14,
+    TextXAlignment=Enum.TextXAlignment.Left
+},Main)
 
--- ============================================
--- SECTION 7: UI COMPONENTS
--- ============================================
+-- Minimize Button
+local MinimizeBtn = Create("TextButton",{
+    Size=UDim2.fromOffset(30,30),
+    Position=UDim2.new(1,-35,0,10),
+    BackgroundTransparency=1,
+    Text="×",
+    TextColor3=Color3.fromRGB(150,150,160),
+    TextSize=20,
+    Font=Enum.Font.GothamMedium
+},Main)
 
-local function CreateCard()
-    local Card = Create("Frame",{
-        Size = UDim2.new(1,-8,0,0),
-        BackgroundColor3 = Theme.Card,
-        BorderSizePixel = 0,
-        AutomaticSize = Enum.AutomaticSize.Y,
-        Parent = Content
-    })
+-- Floating Action Button
+local FloatingActionButton = Create("TextButton",{
+    Size=UDim2.fromOffset(45,45),
+    Position=UDim2.new(0,25,0.5,-22),
+    BackgroundColor3=Theme.Sidebar,
+    Text="K",
+    TextColor3=Theme.Accent,
+    Font=Enum.Font.GothamBold,
+    TextSize=18,
+    Visible=false
+},ScreenGui)
+Corner(FloatingActionButton,99)
+Stroke(FloatingActionButton)
 
-    Corner(Card,12)
-    Stroke(Card)
+-- Tab Container
+local TabButtonsContainer = Create("Frame",{
+    Size=UDim2.new(1,0,1,-80),
+    Position=UDim2.new(0,0,0,70),
+    BackgroundTransparency=1
+},Sidebar)
 
-    Create("UIPadding",{
-        PaddingTop = UDim.new(0,14),
-        PaddingLeft = UDim.new(0,16),
-        PaddingRight = UDim.new(0,16),
-        PaddingBottom = UDim.new(0,14),
-        Parent = Card
-    })
+local TabListLayout = Create("UIListLayout",{
+    HorizontalAlignment=Enum.HorizontalAlignment.Center,
+    Padding=UDim.new(0,12)
+},TabButtonsContainer)
 
-    Create("UIListLayout",{
-        Padding = UDim.new(0,10),
-        Parent = Card
-    })
+-- Page Container
+local PageContainer = Create("Frame",{
+    Size=UDim2.new(1,-95,1,-50),
+    Position=UDim2.new(0,80,0,35),
+    BackgroundTransparency=1
+},Main)
 
-    return Card
+-- [[ TAB GENERATION SYSTEM ]]
+local Pages = {}
+
+local function CreateTab(name, iconText)
+    local Page = Create("ScrollingFrame",{
+        Size=UDim2.new(1,0,1,0),
+        BackgroundTransparency=1,
+        Visible=false,
+        ScrollBarThickness=2,
+        ScrollBarImageColor3=Color3.fromRGB(40,40,45)
+    },PageContainer)
+    
+    local PageLayout = Create("UIListLayout",{
+        Padding=UDim.new(0,10)
+    },Page)
+    
+    local TabBtn = Create("TextButton",{
+        Size=UDim2.fromOffset(40,40),
+        BackgroundColor3=Color3.fromRGB(24,24,28),
+        Text=iconText,
+        TextColor3=Color3.fromRGB(150,150,160),
+        Font=Enum.Font.GothamBold,
+        TextSize=14
+    },TabButtonsContainer)
+    Corner(TabBtn,8)
+    Stroke(TabBtn)
+    
+    TabBtn.MouseButton1Click:Connect(function()
+        for _, p in pairs(Pages) do p.Visible = false end
+        for _, b in ipairs(TabButtonsContainer:GetChildren()) do
+            if b:IsA("TextButton") then
+                TweenService:Create(b, TweenInfo.new(0.2), {
+                    BackgroundColor3 = Color3.fromRGB(24,24,28),
+                    TextColor3 = Color3.fromRGB(150,150,160)
+                }):Play()
+            end
+        end
+        Page.Visible = true
+        TweenService:Create(TabBtn, TweenInfo.new(0.2), {
+            BackgroundColor3 = Theme.Accent,
+            TextColor3 = Color3.fromRGB(255,255,255)
+        }):Play()
+    end)
+    
+    Pages[name] = Page
+    return Page
 end
 
-local function CreateSection(Parent)
-    local Label = Create("TextLabel",{
-        Size = UDim2.new(1,0,0,20),
-        BackgroundTransparency = 1,
-        Text = "",
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Font = Enum.Font.GothamBold,
-        TextColor3 = Theme.Accent,
-        TextSize = 16,
-        Parent = Parent
-    })
-    return Label
-end
+-- Initialize Tabs
+local TabMovement = CreateTab("MOVEMENT", "🎯")
+local TabCombat = CreateTab("COMBAT", "⚔️")
+local TabDupe = CreateTab("DUPE", "📦")
+local TabSettings = CreateTab("SETTINGS", "⚙️")
 
-local function CreateRow(Parent)
-    local Row = Create("Frame",{
-        Size = UDim2.new(1,0,0,36),
-        BackgroundTransparency = 1,
-        Parent = Parent
-    })
+Pages["MOVEMENT"].Visible = true
 
-    local Label = Create("TextLabel",{
-        Size = UDim2.new(.55,0,1,0),
-        BackgroundTransparency = 1,
-        Text = "",
-        TextColor3 = Theme.Text,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Font = Enum.Font.GothamMedium,
-        TextSize = 14,
-        Parent = Row
-    })
-
-    return Row, Label
-end
-
-local function Toggle(Row, toggle_function, accent_color)
+-- [[ MODERN UI ELEMENTS ]]
+local function AddToggle(parent, text, callback, accent_color)
     accent_color = accent_color or Theme.Accent
     
-    local Holder = Create("Frame",{
-        AnchorPoint = Vector2.new(1,.5),
-        Position = UDim2.new(1,0,.5,0),
-        Size = UDim2.new(0,44,0,22),
-        BackgroundColor3 = Theme.Secondary,
-        BorderSizePixel = 0,
-        Parent = Row
-    })
-
-    Corner(Holder,99)
-
-    local Knob = Create("Frame",{
-        Position = UDim2.new(0,2,0.5,-9),
-        Size = UDim2.new(0,18,0,18),
-        BackgroundColor3 = Theme.Secondary,
-        BorderSizePixel = 0,
-        Parent = Holder
-    })
-
-    Corner(Knob,99)
+    local Frame = Create("Frame",{
+        Size=UDim2.new(0.98,0,0,42),
+        BackgroundColor3=Theme.Card
+    },parent)
+    Corner(Frame,6)
+    Stroke(Frame)
     
-    local enabled = false
+    local Label = Create("TextLabel",{
+        Size=UDim2.new(0.7,0,1,0),
+        Position=UDim2.new(0,12,0,0),
+        BackgroundTransparency=1,
+        Text=text,
+        TextColor3=Theme.Text,
+        Font=Enum.Font.GothamMedium,
+        TextSize=12,
+        TextXAlignment=Enum.TextXAlignment.Left
+    },Frame)
+    
+    local SwitchBG = Create("TextButton",{
+        Size=UDim2.fromOffset(36,20),
+        Position=UDim2.new(1,-48,0.5,-10),
+        BackgroundColor3=Color3.fromRGB(35,35,40),
+        Text=""
+    },Frame)
+    Corner(SwitchBG,99)
+    
+    local Ball = Create("Frame",{
+        Size=UDim2.fromOffset(14,14),
+        Position=UDim2.new(0,3,0.5,-7),
+        BackgroundColor3=Color3.fromRGB(255,255,255)
+    },SwitchBG)
+    Corner(Ball,99)
+    
+    local state = false
     local disable_func = nil
     
-    local function update_state()
-        if enabled then
-            Holder.BackgroundColor3 = accent_color
-            TweenService:Create(Knob, TweenInfo.new(.15), {
-                Position = UDim2.new(1,-20,0.5,-9)
-            }):Play()
-            Knob.BackgroundColor3 = Color3.fromRGB(255,255,255)
-        else
-            Holder.BackgroundColor3 = Theme.Secondary
-            TweenService:Create(Knob, TweenInfo.new(.15), {
-                Position = UDim2.new(0,2,0.5,-9)
-            }):Play()
-            Knob.BackgroundColor3 = Theme.Secondary
-        end
-    end
-    
-    Holder.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            enabled = not enabled
-            
-            if enabled then
-                if toggle_function then
-                    disable_func = toggle_function()
-                end
-            else
-                if disable_func then
-                    disable_func()
-                    disable_func = nil
-                end
+    SwitchBG.MouseButton1Click:Connect(function()
+        state = not state
+        local targetPos = state and UDim2.new(1,-17,0.5,-7) or UDim2.new(0,3,0.5,-7)
+        local targetColor = state and accent_color or Color3.fromRGB(35,35,40)
+        
+        TweenService:Create(Ball, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = targetPos}):Play()
+        TweenService:Create(SwitchBG, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = targetColor}):Play()
+        
+        if state then
+            if callback then
+                disable_func = callback()
             end
-            
-            update_state()
+        else
+            if disable_func then
+                disable_func()
+                disable_func = nil
+            end
         end
     end)
-    
-    update_state()
-    
-    return Holder
 end
 
-local function Slider(Row, default_value, min, max, callback)
-    min = min or 0
-    max = max or 100
-    default_value = default_value or 50
+local function AddSlider(parent, text, min, max, default, callback)
+    local Frame = Create("Frame",{
+        Size=UDim2.new(0.98,0,0,55),
+        BackgroundColor3=Theme.Card
+    },parent)
+    Corner(Frame,6)
+    Stroke(Frame)
     
-    local value_label = Create("TextLabel",{
-        AnchorPoint = Vector2.new(1,.5),
-        Position = UDim2.new(1,0,.5,0),
-        Size = UDim2.new(0,40,0,20),
-        BackgroundTransparency = 1,
-        Text = tostring(default_value),
-        TextColor3 = Theme.Accent,
-        Font = Enum.Font.GothamBold,
-        TextSize = 12,
-        Parent = Row
-    })
-
-    local Bar = Create("Frame",{
-        AnchorPoint = Vector2.new(1,.5),
-        Position = UDim2.new(1,-50,.5,0),
-        Size = UDim2.new(0,170,0,6),
-        BackgroundColor3 = Theme.Secondary,
-        BorderSizePixel = 0,
-        Parent = Row
-    })
-
-    Corner(Bar,99)
-
-    local Fill = Create("Frame",{
-        Size = UDim2.new((default_value - min)/(max - min),0,1,0),
-        BackgroundColor3 = Theme.Accent,
-        BorderSizePixel = 0,
-        Parent = Bar
-    })
-
-    Corner(Fill,99)
-
-    local Knob = Create("Frame",{
-        AnchorPoint = Vector2.new(.5,.5),
-        Position = UDim2.new(1,0,.5,0),
-        Size = UDim2.new(0,12,0,12),
-        BackgroundColor3 = Theme.Accent,
-        BorderSizePixel = 0,
-        Parent = Fill
-    })
-
-    Corner(Knob,99)
+    local Label = Create("TextLabel",{
+        Size=UDim2.new(0.6,0,0,25),
+        Position=UDim2.new(0,12,0,4),
+        BackgroundTransparency=1,
+        Text=text,
+        TextColor3=Theme.Text,
+        Font=Enum.Font.GothamMedium,
+        TextSize=12,
+        TextXAlignment=Enum.TextXAlignment.Left
+    },Frame)
     
-    local dragging = false
-    local current_value = default_value
+    local ValueLabel = Create("TextLabel",{
+        Size=UDim2.new(0.3,0,0,25),
+        Position=UDim2.new(1,-15,0,4),
+        BackgroundTransparency=1,
+        Text=tostring(default),
+        TextColor3=Theme.Accent,
+        Font=Enum.Font.GothamBold,
+        TextSize=12,
+        TextXAlignment=Enum.TextXAlignment.Right
+    },Frame)
     
-    local function update_slider(input)
-        local mouse_pos = input.Position.X
-        local bar_abs_pos = Bar.AbsolutePosition.X
-        local bar_width = Bar.AbsoluteSize.X
+    local SliderBG = Create("TextButton",{
+        Size=UDim2.new(1,-24,0,6),
+        Position=UDim2.new(0,12,0,36),
+        BackgroundColor3=Color3.fromRGB(35,35,40),
+        Text=""
+    },Frame)
+    Corner(SliderBG,99)
+    
+    local SliderFill = Create("Frame",{
+        Size=UDim2.new((default - min) / (max - min),0,1,0),
+        BackgroundColor3=Theme.Accent
+    },SliderBG)
+    Corner(SliderFill,99)
+    
+    local sliding = false
+    
+    local function updateSlider(inputLocation)
+        local relativeX = inputLocation.X - SliderBG.AbsolutePosition.X
+        local percentage = math.clamp(relativeX / SliderBG.AbsoluteSize.X, 0, 1)
+        local value = math.floor(min + (max - min) * percentage)
         
-        local percent = math.clamp((mouse_pos - bar_abs_pos) / bar_width, 0, 1)
-        current_value = math.floor(min + (max - min) * percent)
-        
-        Fill.Size = UDim2.new(percent,0,1,0)
-        value_label.Text = tostring(current_value)
-        
-        if callback then
-            callback(current_value)
-        end
+        TweenService:Create(SliderFill, TweenInfo.new(0.05, Enum.EasingStyle.Out), {Size = UDim2.new(percentage,0,1,0)}):Play()
+        ValueLabel.Text = tostring(value)
+        callback(value)
     end
     
-    Bar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            update_slider(input)
-        end
-    end)
-    
-    Bar.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
+    SliderBG.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            sliding = true
+            updateSlider(input.Position)
         end
     end)
     
     UIS.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            update_slider(input)
+        if sliding and (input.UserInputType == Enum.UserInputType.MouseBehavior or input.UserInputType == Enum.UserInputType.Touch) then
+            updateSlider(input.Position)
         end
     end)
     
-    return function() return current_value end
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            sliding = false
+        end
+    end)
 end
 
-local function Button(Row, text, callback)
-    local B = Create("TextButton",{
-        AnchorPoint = Vector2.new(1,.5),
-        Position = UDim2.new(1,0,.5,0),
-        Size = UDim2.new(0,110,0,28),
-        BackgroundColor3 = Theme.Accent,
-        BorderSizePixel = 0,
-        Text = text or "",
-        TextColor3 = Color3.fromRGB(0,0,0),
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        AutoButtonColor = false,
-        Parent = Row
-    })
-
-    Corner(B,8)
-
-    B.MouseEnter:Connect(function()
-        TweenService:Create(B,TweenInfo.new(.15),{
-            BackgroundColor3 = Color3.fromRGB(50,210,255)
-        }):Play()
-    end)
-
-    B.MouseLeave:Connect(function()
-        TweenService:Create(B,TweenInfo.new(.15),{
-            BackgroundColor3 = Theme.Accent
+local function AddButton(parent, text, callback, accent_color)
+    accent_color = accent_color or Theme.Accent
+    
+    local Frame = Create("Frame",{
+        Size=UDim2.new(0.98,0,0,42),
+        BackgroundColor3=Theme.Card
+    },parent)
+    Corner(Frame,6)
+    Stroke(Frame)
+    
+    local Label = Create("TextLabel",{
+        Size=UDim2.new(0.6,0,1,0),
+        Position=UDim2.new(0,12,0,0),
+        BackgroundTransparency=1,
+        Text=text,
+        TextColor3=Theme.Text,
+        Font=Enum.Font.GothamMedium,
+        TextSize=12,
+        TextXAlignment=Enum.TextXAlignment.Left
+    },Frame)
+    
+    local Btn = Create("TextButton",{
+        Size=UDim2.fromOffset(80,28),
+        Position=UDim2.new(1,-100,0.5,-14),
+        BackgroundColor3=accent_color,
+        Text="Execute",
+        TextColor3=Color3.fromRGB(0,0,0),
+        Font=Enum.Font.GothamBold,
+        TextSize=11
+    },Frame)
+    Corner(Btn,6)
+    
+    Btn.MouseEnter:Connect(function()
+        TweenService:Create(Btn, TweenInfo.new(0.15), {
+            BackgroundColor3 = Color3.fromRGB(190,120,255)
         }):Play()
     end)
     
-    B.MouseButton1Click:Connect(function()
+    Btn.MouseLeave:Connect(function()
+        TweenService:Create(Btn, TweenInfo.new(0.15), {
+            BackgroundColor3 = accent_color
+        }):Play()
+    end)
+    
+    Btn.MouseButton1Click:Connect(function()
         if callback then callback() end
     end)
-    
-    return B
 end
 
-local function Textbox(Row, placeholder, callback)
+local function AddTextbox(parent, text, placeholder, callback)
+    local Frame = Create("Frame",{
+        Size=UDim2.new(0.98,0,0,42),
+        BackgroundColor3=Theme.Card
+    },parent)
+    Corner(Frame,6)
+    Stroke(Frame)
+    
+    local Label = Create("TextLabel",{
+        Size=UDim2.new(0.35,0,1,0),
+        Position=UDim2.new(0,12,0,0),
+        BackgroundTransparency=1,
+        Text=text,
+        TextColor3=Theme.Text,
+        Font=Enum.Font.GothamMedium,
+        TextSize=12,
+        TextXAlignment=Enum.TextXAlignment.Left
+    },Frame)
+    
     local Box = Create("TextBox",{
-        AnchorPoint = Vector2.new(1,.5),
-        Position = UDim2.new(1,0,.5,0),
-        Size = UDim2.new(0,150,0,28),
-        BackgroundColor3 = Theme.Secondary,
-        Text = "",
-        PlaceholderText = placeholder or "",
-        ClearTextOnFocus = false,
-        TextColor3 = Theme.Text,
-        PlaceholderColor3 = Color3.fromRGB(120,120,120),
-        Font = Enum.Font.Gotham,
-        TextSize = 13,
-        BorderSizePixel = 0,
-        Parent = Row
-    })
-
-    Corner(Box,8)
-    Stroke(Box)
+        Size=UDim2.new(0.5,0,0,28),
+        Position=UDim2.new(0.45,0,0.5,-14),
+        BackgroundColor3=Color3.fromRGB(35,35,40),
+        Text="",
+        PlaceholderText=placeholder or "",
+        ClearTextOnFocus=false,
+        TextColor3=Theme.Text,
+        PlaceholderColor3=Color3.fromRGB(120,120,120),
+        Font=Enum.Font.Gotham,
+        TextSize=12,
+        BorderSizePixel=0
+    },Frame)
+    Corner(Box,6)
     
     Box.FocusLost:Connect(function(enter_pressed)
         if enter_pressed and callback then
@@ -1693,368 +1789,196 @@ local function Textbox(Row, placeholder, callback)
     return Box
 end
 
-local function Dropdown(Row, options, default_index, callback)
-    default_index = default_index or 1
-    
-    local Box = Create("Frame",{
-        AnchorPoint = Vector2.new(1,.5),
-        Position = UDim2.new(1,0,.5,0),
-        Size = UDim2.new(0,150,0,28),
-        BackgroundColor3 = Theme.Secondary,
-        BorderSizePixel = 0,
-        Parent = Row
-    })
-
-    Corner(Box,8)
-    Stroke(Box)
-
-    local Label = Create("TextLabel",{
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1,-24,1,0),
-        Text = options[default_index] or "",
-        TextColor3 = Theme.Text,
-        Font = Enum.Font.Gotham,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Box
-    })
-
-    local Arrow = Create("TextLabel",{
-        AnchorPoint = Vector2.new(1,.5),
-        Position = UDim2.new(1,-8,.5,0),
-        Size = UDim2.new(0,12,1,0),
-        BackgroundTransparency = 1,
-        Text = "▼",
-        TextColor3 = Theme.Accent,
-        Font = Enum.Font.GothamBold,
-        TextSize = 10,
-        Parent = Box
-    })
-    
-    local expanded = false
-    local dropdown_menu = nil
-    
-    local function toggle_dropdown()
-        expanded = not expanded
-        
-        if expanded then
-            Arrow.Text = "▲"
-            dropdown_menu = Create("Frame",{
-                AnchorPoint = Vector2.new(1,0),
-                Position = UDim2.new(1,0,0,30),
-                Size = UDim2.new(0,150,0,math.min(#options * 30, 150)),
-                BackgroundColor3 = Theme.Card,
-                BorderSizePixel = 0,
-                ZIndex = 10,
-                Parent = Box
-            })
-            Corner(dropdown_menu,8)
-            Stroke(dropdown_menu)
-            
-            Create("UIListLayout",{
-                Padding = UDim.new(0,2),
-                Parent = dropdown_menu
-            })
-            
-            for i, option in ipairs(options) do
-                local btn = Create("TextButton",{
-                    Size = UDim2.new(1,0,0,28),
-                    BackgroundTransparency = 1,
-                    Text = option,
-                    TextColor3 = Theme.Text,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 13,
-                    AutoButtonColor = false,
-                    Parent = dropdown_menu
-                })
-                
-                btn.MouseEnter:Connect(function()
-                    btn.BackgroundTransparency = 0.1
-                    btn.BackgroundColor3 = Theme.Accent
-                end)
-                
-                btn.MouseLeave:Connect(function()
-                    btn.BackgroundTransparency = 1
-                end)
-                
-                btn.MouseButton1Click:Connect(function()
-                    Label.Text = option
-                    Arrow.Text = "▼"
-                    if callback then callback(option, i) end
-                    expanded = false
-                    if dropdown_menu then
-                        dropdown_menu:Destroy()
-                        dropdown_menu = nil
-                    end
-                end)
-            end
-        else
-            Arrow.Text = "▼"
-            if dropdown_menu then
-                dropdown_menu:Destroy()
-                dropdown_menu = nil
-            end
-        end
-    end
-    
-    Box.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            toggle_dropdown()
-        end
-    end)
-    
-    return function() return Label.Text end
-end
-
 -- ============================================
--- SECTION 8: BUILD UI CARDS
+-- SECTION 7: BUILD UI PAGES
 -- ============================================
 
--- MOVEMENT CARD
-local MovementCard = CreateCard()
-CreateSection(MovementCard).Text = "⚡ MOVEMENT"
+-- MOVEMENT TAB
+AddToggle(TabMovement, "✈ Fly", function() return Hacks:fly(50) end, Theme.AccentBlue)
+AddToggle(TabMovement, "⚡ Speed (2x)", function() return Hacks:speed(2) end, Theme.AccentYellow)
+AddToggle(TabMovement, "🔄 Infinite Jump", function() return Hacks:infinite_jump() end, Theme.AccentPurple)
+AddToggle(TabMovement, "🚫 No Clip", function() return Hacks:no_clip() end, Theme.AccentYellow)
+AddToggle(TabMovement, "🐰 Bunny Hop", function() return Hacks:bunny_hop() end, Theme.AccentBlue)
+AddToggle(TabMovement, "🌊 Air Movement", function() return Hacks:air_move() end, Theme.AccentBlue)
+AddToggle(TabMovement, "🔄 Directional Jump", function() return Hacks:directional_jump() end, Theme.AccentPurple)
+AddToggle(TabMovement, "🛑 Anti-Fall", function() return Hacks:anti_fall() end, Theme.Accent)
+AddSlider(TabMovement, "Hitbox Scale Extender", 1, 25, 5, function(v) _G.CurrentHitboxScale = v end)
+AddToggle(TabMovement, "🎯 Hitbox Expander", function() return Hacks:hitbox_expander(_G.CurrentHitboxScale) end, Theme.Accent)
 
-local fly_row, fly_label = CreateRow(MovementCard)
-fly_label.Text = "✈ Fly"
-Toggle(fly_row, function() return Hacks:fly(50) end, Theme.AccentBlue)
+-- COMBAT TAB
+AddToggle(TabCombat, "🛡 God Mode", function() return Hacks:god_mode() end, Theme.Accent)
+AddToggle(TabCombat, "🎯 Aimbot", function() return Hacks:aimbot() end, Theme.AccentRed)
+AddToggle(TabCombat, "🔇 Silent Aim", function() return Hacks:silent_aim() end, Theme.AccentPurple)
+AddToggle(TabCombat, "💀 Kill Aura", function() return Hacks:kill_aura(20) end, Theme.AccentRed)
+AddToggle(TabCombat, "🔄 Spin Bot", function() return Hacks:spin_bot(3) end, Theme.AccentYellow)
+AddToggle(TabCombat, "🖱 Auto Click", function() return Hacks:auto_click(0.1) end, Theme.Accent)
+AddToggle(TabCombat, "📏 Reach", function() return Hacks:reach(10) end, Theme.AccentPurple)
+AddButton(TabCombat, "💀 Kill All", function() Hacks:kill_all() end, Theme.AccentRed)
+AddToggle(TabCombat, "👁 ESP", function() return Hacks:esp(Color3.fromRGB(255,0,0)) end, Theme.AccentRed)
+AddToggle(TabCombat, "🧱 Wallhack", function() return Hacks:wallhack() end, Theme.AccentBlue)
 
-local speed_row, speed_label = CreateRow(MovementCard)
-speed_label.Text = "⚡ Speed (2x)"
-Toggle(speed_row, function() return Hacks:speed(2) end, Theme.AccentYellow)
-
-local jump_row, jump_label = CreateRow(MovementCard)
-jump_label.Text = "🔄 Infinite Jump"
-Toggle(jump_row, function() return Hacks:infinite_jump() end, Theme.AccentPurple)
-
-local noclip_row, noclip_label = CreateRow(MovementCard)
-noclip_label.Text = "🚫 No Clip"
-Toggle(noclip_row, function() return Hacks:no_clip() end, Theme.AccentYellow)
-
-local bunny_row, bunny_label = CreateRow(MovementCard)
-bunny_label.Text = "🐰 Bunny Hop"
-Toggle(bunny_row, function() return Hacks:bunny_hop() end, Theme.AccentBlue)
-
-local airmove_row, airmove_label = CreateRow(MovementCard)
-airmove_label.Text = "🌊 Air Movement"
-Toggle(airmove_row, function() return Hacks:air_move() end, Theme.AccentBlue)
-
-local dirjump_row, dirjump_label = CreateRow(MovementCard)
-dirjump_label.Text = "🔄 Directional Jump"
-Toggle(dirjump_row, function() return Hacks:directional_jump() end, Theme.AccentPurple)
-
-local antifall_row, antifall_label = CreateRow(MovementCard)
-antifall_label.Text = "🛑 Anti-Fall"
-Toggle(antifall_row, function() return Hacks:anti_fall() end, Theme.Accent)
-
--- VISUAL CARD
-local VisualCard = CreateCard()
-CreateSection(VisualCard).Text = "👁 VISUALS"
-
-local esp_row, esp_label = CreateRow(VisualCard)
-esp_label.Text = "👁 ESP"
-Toggle(esp_row, function() return Hacks:esp(Color3.fromRGB(255,0,0)) end, Theme.AccentRed)
-
-local wall_row, wall_label = CreateRow(VisualCard)
-wall_label.Text = "🧱 Wallhack"
-Toggle(wall_row, function() return Hacks:wallhack() end, Theme.AccentBlue)
-
--- COMBAT CARD
-local CombatCard = CreateCard()
-CreateSection(CombatCard).Text = "⚔️ COMBAT"
-
-local god_row, god_label = CreateRow(CombatCard)
-god_label.Text = "🛡 God Mode"
-Toggle(god_row, function() return Hacks:god_mode() end, Theme.Accent)
-
-local aimbot_row, aimbot_label = CreateRow(CombatCard)
-aimbot_label.Text = "🎯 Aimbot"
-Toggle(aimbot_row, function() return Hacks:aimbot() end, Theme.AccentRed)
-
-local silentaim_row, silentaim_label = CreateRow(CombatCard)
-silentaim_label.Text = "🔇 Silent Aim"
-Toggle(silentaim_row, function() return Hacks:silent_aim() end, Theme.AccentPurple)
-
-local killaura_row, killaura_label = CreateRow(CombatCard)
-killaura_label.Text = "💀 Kill Aura"
-Toggle(killaura_row, function() return Hacks:kill_aura(20) end, Theme.AccentRed)
-
-local spinbot_row, spinbot_label = CreateRow(CombatCard)
-spinbot_label.Text = "🔄 Spin Bot"
-Toggle(spinbot_row, function() return Hacks:spin_bot(3) end, Theme.AccentYellow)
-
-local autoclick_row, autoclick_label = CreateRow(CombatCard)
-autoclick_label.Text = "🖱 Auto Click"
-Toggle(autoclick_row, function() return Hacks:auto_click(0.1) end, Theme.Accent)
-
-local reach_row, reach_label = CreateRow(CombatCard)
-reach_label.Text = "📏 Reach"
-Toggle(reach_row, function() return Hacks:reach(10) end, Theme.AccentPurple)
-
--- DUPLICATION CARD
-local DupeCard = CreateCard()
-CreateSection(DupeCard).Text = "📦 DUPLICATION"
-
-local item_row, item_label = CreateRow(DupeCard)
-item_label.Text = "📦 Duplicate Items"
-local item_textbox = Textbox(item_row, "Item name")
-Button(item_row, "Dupe!", function()
-    if item_textbox.Text ~= "" then
-        Duplicator:duplicate_items(LocalPlayer, item_textbox.Text, 5)
-        item_textbox.Text = ""
-    end
-end)
-
-local inf_dupe_row, inf_dupe_label = CreateRow(DupeCard)
-inf_dupe_label.Text = "🔄 Infinite Dupe"
-Toggle(inf_dupe_row, function()
+-- DUPLICATION TAB
+AddToggle(TabDupe, "🔄 Infinite Dupe", function()
     local id = Duplicator:start_infinite_duplication("item", 1, 1)
     return function()
         Duplicator:stop_infinite_duplication(id)
     end
 end, Theme.AccentPurple)
 
-local currency_row, currency_label = CreateRow(DupeCard)
-currency_label.Text = "💰 Duplicate Currency"
-Button(currency_row, "Add 1000", function()
+local dupe_item_box = AddTextbox(TabDupe, "📦 Duplicate Items", "Item name")
+AddButton(TabDupe, "Dupe!", function()
+    if dupe_item_box.Text ~= "" then
+        Duplicator:duplicate_items(LocalPlayer, dupe_item_box.Text, 5)
+        dupe_item_box.Text = ""
+    end
+end)
+
+AddButton(TabDupe, "💰 Add 1000 Currency", function()
     Duplicator:duplicate_currency(LocalPlayer, 1000)
-end)
+end, Theme.AccentYellow)
 
-local char_row, char_label = CreateRow(DupeCard)
-char_label.Text = "👤 Duplicate Character"
-Button(char_row, "Clone!", function()
+AddButton(TabDupe, "👤 Clone Character", function()
     Duplicator:duplicate_character(LocalPlayer, 3)
-end)
+end, Theme.AccentBlue)
 
-local object_row, object_label = CreateRow(DupeCard)
-object_label.Text = "🎯 Duplicate Objects"
-local object_drop = Dropdown(object_row, {"Tool", "Part", "MeshPart", "Folder"}, 1)
-Button(object_row, "Dupe Objects", function()
-    local obj_type = object_drop()
-    Duplicator:duplicate_objects(obj_type, 5)
-end)
+AddButton(TabDupe, "🎯 Duplicate Objects", function()
+    Duplicator:duplicate_objects("Part", 10)
+end, Theme.AccentPurple)
 
-local gui_row, gui_label = CreateRow(DupeCard)
-gui_label.Text = "🖥 Duplicate GUI"
-local gui_textbox = Textbox(gui_row, "GUI name")
-Button(gui_row, "Dupe GUI", function()
-    if gui_textbox.Text ~= "" then
-        Duplicator:duplicate_gui(gui_textbox.Text, 3)
-        gui_textbox.Text = ""
+local dupe_gui_box = AddTextbox(TabDupe, "🖥 Duplicate GUI", "GUI name")
+AddButton(TabDupe, "Dupe GUI", function()
+    if dupe_gui_box.Text ~= "" then
+        Duplicator:duplicate_gui(dupe_gui_box.Text, 3)
+        dupe_gui_box.Text = ""
     end
 end)
 
--- MISC CARD
-local MiscCard = CreateCard()
-CreateSection(MiscCard).Text = "🔧 MISC"
-
-local farm_row, farm_label = CreateRow(MiscCard)
-farm_label.Text = "🌾 Auto Farm"
-Toggle(farm_row, function() return Hacks:auto_farm() end, Theme.Accent)
-
-local teleport_row, teleport_label = CreateRow(MiscCard)
-teleport_label.Text = "📍 Teleport to Player"
-local teleport_input = Textbox(teleport_row, "Player name")
-Button(teleport_row, "TP", function()
-    if teleport_input.Text ~= "" then
-        Hacks:teleport_to_player(teleport_input.Text)
-    end
-end)
-
-local tpmouse_row, tpmouse_label = CreateRow(MiscCard)
-tpmouse_label.Text = "🖱 Teleport to Mouse"
-Button(tpmouse_row, "TP Here", function()
-    Hacks:teleport_to_mouse()
-end)
-
-local kill_row, kill_label = CreateRow(MiscCard)
-kill_label.Text = "💀 Kill All"
-Button(kill_row, "Kill All!", function()
-    Hacks:kill_all()
-end)
-
-local rejoin_row, rejoin_label = CreateRow(MiscCard)
-rejoin_label.Text = "🔄 Rejoin Game"
-Button(rejoin_row, "Rejoin", function()
-    game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
-end)
-
-local bypass_row, bypass_label = CreateRow(MiscCard)
-bypass_label.Text = "🛡 Anti-Cheat Bypass"
-Toggle(bypass_row, function()
+-- SETTINGS TAB
+AddToggle(TabSettings, "🛡 Anti-Cheat Bypass", function()
     AntiDetection:initialize()
     return function()
         AntiDetection:stop()
     end
 end, Theme.Accent)
 
+AddToggle(TabSettings, "🚀 FPS Booster (999 FPS)", function()
+    return Hacks:fps_booster(999)
+end, Theme.AccentYellow)
+
+AddButton(TabSettings, "🔄 Rejoin Game", function()
+    game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
+end, Theme.AccentBlue)
+
+AddButton(TabSettings, "📋 Copy Executor Info", function()
+    setclipboard("Kurby Hub v" .. Executor.version .. " - Complete Feature Set")
+end, Theme.AccentPurple)
+
+-- Teleport functions
+local tp_player_box = AddTextbox(TabSettings, "📍 Teleport to Player", "Player name")
+AddButton(TabSettings, "TP to Player", function()
+    if tp_player_box.Text ~= "" then
+        Hacks:teleport_to_player(tp_player_box.Text)
+    end
+end, Theme.AccentBlue)
+
+AddButton(TabSettings, "🖱 Teleport to Mouse", function()
+    Hacks:teleport_to_mouse()
+end, Theme.AccentYellow)
+
 -- ============================================
--- SECTION 9: WINDOW DRAGGING
+-- SECTION 8: BACKGROUND PROCESSES
 -- ============================================
 
-local dragging = false
-local dragInput = nil
-local dragStart = nil
-local startPos = nil
+-- FPS Counter
+local lastUpdate, frameCount = os.clock(), 0
+RunService.RenderStepped:Connect(function()
+    frameCount = frameCount + 1
+    if os.clock() - lastUpdate >= 1 then
+        fpsLabel.Text = "FPS: " .. frameCount
+        frameCount, lastUpdate = 0, os.clock()
+    end
+    
+    -- Hitbox Expander
+    if _G.HitboxEnabled then
+        for _, model in ipairs(workspace:GetChildren()) do
+            if model:IsA("Model") and model.Name:match("^CLIENT_BALL_%d+$") then
+                local ball = model:FindFirstChild("Ball.001")
+                if not ball then
+                    local ref = nil
+                    for _, p in ipairs(model:GetDescendants()) do
+                        if p:IsA("BasePart") then
+                            ref = p
+                            break
+                        end
+                    end
+                    if ref then
+                        ball = Instance.new("Part", model)
+                        ball.Name = "Ball.001"
+                        ball.Shape = Enum.PartType.Ball
+                        ball.Size = Vector3.new(2, 2, 2) * _G.CurrentHitboxScale
+                        ball.CFrame = ref.CFrame
+                        ball.Anchored = true
+                        ball.CanCollide = false
+                        ball.Transparency = 0.7
+                        ball.Material = Enum.Material.ForceField
+                        ball.Color = Color3.fromRGB(168, 85, 247)
+                    end
+                else
+                    ball.Size = Vector3.new(2, 2, 2) * _G.CurrentHitboxScale
+                end
+            end
+        end
+    end
+    
+    -- Air Movement
+    if _G.AirMoveEnabled and humanoid and hrp then
+        local state = humanoid:GetState()
+        if state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping then
+            local moveDir = humanoid.MoveDirection
+            if moveDir.Magnitude > 0 then
+                hrp.Velocity = Vector3.new(moveDir.X * _G.AirMoveSpeed, hrp.Velocity.Y, moveDir.Z * _G.AirMoveSpeed)
+            end
+        end
+    end
+end)
 
-Header.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = Main.Position
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
+-- Directional Jump
+UIS.JumpRequest:Connect(function()
+    if _G.DirectionalJump and humanoid and hrp then
+        task.defer(function()
+            task.wait(0.03)
+            local dir = Vector3.new(Camera.CFrame.LookVector.X, 0, Camera.CFrame.LookVector.Z)
+            if dir.Magnitude > 0 then
+                hrp.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + dir.Unit)
+                humanoid.AutoRotate = false
             end
         end)
+    elseif humanoid then
+        humanoid.AutoRotate = true
     end
 end)
 
-Header.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
+-- Minimize Button
+MinimizeBtn.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    FloatingActionButton.Visible = true
 end)
 
-UIS.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-
-        Main.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-    end
+FloatingActionButton.MouseButton1Click:Connect(function()
+    FloatingActionButton.Visible = false
+    Main.Visible = true
 end)
 
--- ============================================
--- SECTION 10: OPEN ANIMATION
--- ============================================
-
-Main.Size = UDim2.fromOffset(0,0)
-
-TweenService:Create(
-    Main,
-    TweenInfo.new(.35,Enum.EasingStyle.Quint),
-    {
-        Size = UDim2.fromOffset(760,470)
-    }
-):Play()
-
--- ============================================
--- SECTION 11: KEYBIND TO TOGGLE UI
--- ============================================
-
+-- Keybind to toggle UI
 UIS.InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.RightControl then
         Main.Visible = not Main.Visible
+        FloatingActionButton.Visible = not Main.Visible
     end
 end)
 
 -- ============================================
--- SECTION 12: INITIALIZATION
+-- SECTION 9: INITIALIZATION
 -- ============================================
 
 -- Start anti-detection
@@ -2064,23 +1988,6 @@ print("⚡ KurbyHub v" .. Executor.version .. " loaded successfully!")
 print("🛡 Anti-Cheat bypass enabled by default!")
 print("📋 Drag the header to move the window")
 print("⌨️ Press RightControl to toggle the UI")
-print("\n📋 Features Available:")
-
-local features = {
-    "MOVEMENT: Fly, Speed, Infinite Jump, No Clip, Bunny Hop",
-    "MOVEMENT: Air Movement, Directional Jump, Anti-Fall",
-    "VISUALS: ESP, Wallhack",
-    "COMBAT: God Mode, Aimbot, Silent Aim, Kill Aura",
-    "COMBAT: Spin Bot, Auto Click, Reach",
-    "DUPLICATION: Items (with infinite), Currency, Character",
-    "DUPLICATION: Objects, GUI",
-    "MISC: Auto Farm, Teleport (to Player/Mouse), Kill All",
-    "MISC: Rejoin, Anti-Cheat Bypass (Toggle)"
-}
-
-for i, feature in ipairs(features) do
-    print("  " .. tostring(i) .. ". " .. feature)
-end
 
 return {
     execute = function(code) return Executor:execute(code) end,
@@ -2114,5 +2021,7 @@ return {
     air_move = function() return Hacks:air_move() end,
     directional_jump = function() return Hacks:directional_jump() end,
     anti_fall = function() return Hacks:anti_fall() end,
+    hitbox_expander = function(scale) return Hacks:hitbox_expander(scale) end,
+    fps_booster = function(target) return Hacks:fps_booster(target) end,
     inject = function(player, code) return Executor:inject_script(player, code) end,
 }
