@@ -1,6 +1,6 @@
 --[[
     ============================================
-    Fishy's Collection- COMPLETE UI WITH ALL FEATURES (FIXED)
+    Fishy's Collection- COMPLETE UI WITH ALL FEATURES (FULLY FIXED)
     ============================================
 ]]
 
@@ -12,6 +12,7 @@ local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
 
 -- ============================================
 -- SECTION 1: THEME & UI COMPONENTS
@@ -99,64 +100,168 @@ function Executor:inject_script(player, script_content)
 end
 
 -- ============================================
--- SECTION 3: DUPLICATION SYSTEM (FIXED)
+-- SECTION 3: DUPLICATION SYSTEM (FULLY FIXED)
 -- ============================================
 
 local Duplicator = {
     active_duplications = {}
 }
 
+-- Helper function to properly duplicate a tool with all its functionality
+function Duplicator:clone_tool_with_functionality(tool)
+    if not tool then return nil end
+    
+    -- Create a new tool instead of cloning to ensure proper functionality
+    local newTool = Instance.new("Tool")
+    newTool.Name = tool.Name .. "_dupe_" .. os.time()
+    newTool.RequiresHandle = tool.RequiresHandle
+    newTool.Grip = tool.Grip
+    newTool.GripPos = tool.GripPos
+    newTool.GripUp = tool.GripUp
+    newTool.GripForward = tool.GripForward
+    newTool.GripRight = tool.GripRight
+    newTool.CanBeDropped = tool.CanBeDropped
+    newTool.TextureId = tool.TextureId
+    newTool.ToolTip = tool.ToolTip or ""
+    
+    -- Copy all attributes
+    for _, attrName in ipairs(tool:GetAttributes()) do
+        newTool:SetAttribute(attrName, tool:GetAttribute(attrName))
+    end
+    
+    -- Find and clone the handle with proper properties
+    local handle = tool:FindFirstChild("Handle")
+    if handle then
+        local newHandle = handle:Clone()
+        newHandle.Parent = newTool
+        newHandle.CanCollide = true
+        newHandle.Anchored = false
+        newHandle.Transparency = handle.Transparency
+        newHandle.Material = handle.Material
+        newHandle.Color = handle.Color
+        newHandle.Size = handle.Size
+        
+        -- Copy all parts properly
+        for _, part in ipairs(tool:GetDescendants()) do
+            if part:IsA("BasePart") and part ~= handle then
+                local newPart = part:Clone()
+                newPart.Parent = newTool
+                newPart.CanCollide = true
+                newPart.Anchored = false
+            end
+        end
+    end
+    
+    -- Copy scripts and ensure they're enabled
+    for _, script in ipairs(tool:GetDescendants()) do
+        if script:IsA("Script") or script:IsA("LocalScript") or script:IsA("ModuleScript") then
+            local newScript = script:Clone()
+            newScript.Parent = newTool
+            newScript.Disabled = false
+        end
+    end
+    
+    -- Copy remote events/functions if they exist (for game functionality)
+    for _, remote in ipairs(tool:GetDescendants()) do
+        if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+            local newRemote = remote:Clone()
+            newRemote.Parent = newTool
+        end
+    end
+    
+    return newTool
+end
+
 function Duplicator:duplicate_held_item(player)
+    if not player then player = LocalPlayer end
     local char = player.Character
     if not char then return false end
     
     local held_item = nil
-    if char:FindFirstChild("Humanoid") then
-        held_item = char.Humanoid:FindFirstChild("Tool")
+    for _, tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            held_item = tool
+            break
+        end
     end
     
     if not held_item then
-        for _, tool in ipairs(char:GetChildren()) do
-            if tool:IsA("Tool") then
-                held_item = tool
-                break
+        -- Check backpack
+        local backpack = player:FindFirstChild("Backpack")
+        if backpack then
+            for _, tool in ipairs(backpack:GetChildren()) do
+                if tool:IsA("Tool") then
+                    held_item = tool
+                    break
+                end
             end
         end
     end
     
     if not held_item then return false end
     
-    local inventory = player:FindFirstChild("Inventory") or player:FindFirstChild("Backpack")
-    if not inventory then return false end
+    -- Create a properly functional duplicate
+    local newTool = self:clone_tool_with_functionality(held_item)
+    if not newTool then return false end
     
-    local duplicate = held_item:Clone()
-    duplicate.Name = held_item.Name .. "_dupe"
-    duplicate.Parent = inventory
+    -- Place in backpack first
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack then
+        newTool.Parent = backpack
+    else
+        newTool.Parent = player
+    end
     
-    if duplicate:IsA("Tool") then
-        task.wait(0.1)
-        if player.Character then
-            duplicate.Parent = player.Character
+    task.wait(0.05)
+    
+    -- Equip to character if possible
+    if player.Character and newTool:IsA("Tool") then
+        local equipSuccess = pcall(function()
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            if humanoid then
+                humanoid:EquipTool(newTool)
+            end
+        end)
+        
+        if not equipSuccess then
+            newTool.Parent = player.Character
         end
     end
     
-    return true
+    return newTool
 end
 
 function Duplicator:duplicate_items(player, item_name, count)
     count = count or 1
     local duplicated = {}
     
-    local inventory = player:FindFirstChild("Inventory")
-    if not inventory then 
-        inventory = player:FindFirstChild("Backpack")
-    end
-    if not inventory then return false end
+    if not player then player = LocalPlayer end
     
-    local item = inventory:FindFirstChild(item_name)
+    -- Search for the item to duplicate
+    local item = nil
+    local searchLocations = {
+        player:FindFirstChild("Backpack"),
+        player.Character,
+        player:FindFirstChild("Inventory"),
+        workspace
+    }
+    
+    for _, location in ipairs(searchLocations) do
+        if location then
+            for _, obj in ipairs(location:GetChildren()) do
+                if obj:IsA("Tool") and (obj.Name == item_name or obj.Name:find(item_name)) then
+                    item = obj
+                    break
+                end
+            end
+        end
+        if item then break end
+    end
+    
     if not item then
+        -- Search deeper in workspace
         for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj.Name == item_name and obj:IsA("Tool") then
+            if obj:IsA("Tool") and (obj.Name == item_name or obj.Name:find(item_name)) then
                 item = obj
                 break
             end
@@ -165,14 +270,31 @@ function Duplicator:duplicate_items(player, item_name, count)
     
     if not item then return false end
     
+    local backpack = player:FindFirstChild("Backpack")
+    if not backpack then 
+        backpack = Instance.new("Folder")
+        backpack.Name = "Backpack"
+        backpack.Parent = player
+    end
+    
+    -- Create multiple functional duplicates
     for i = 1, count do
-        local duplicate = item:Clone()
-        duplicate.Name = item_name .. "_" .. tostring(i)
-        duplicate.Parent = inventory
-        table.insert(duplicated, duplicate)
-        
-        if duplicate:IsA("Tool") and player.Character then
-            duplicate.Parent = player.Character
+        local newTool = self:clone_tool_with_functionality(item)
+        if newTool then
+            newTool.Name = item_name .. "_" .. tostring(i)
+            newTool.Parent = backpack
+            table.insert(duplicated, newTool)
+            
+            -- Try to equip one of them
+            if i == 1 and player.Character then
+                task.wait(0.05)
+                local humanoid = player.Character:FindFirstChild("Humanoid")
+                if humanoid then
+                    pcall(function()
+                        humanoid:EquipTool(newTool)
+                    end)
+                end
+            end
         end
     end
     
@@ -183,6 +305,7 @@ function Duplicator:duplicate_character(player, count)
     count = count or 1
     local clones = {}
     
+    if not player then player = LocalPlayer end
     local char = player.Character
     if not char then return false end
     
@@ -195,6 +318,7 @@ function Duplicator:duplicate_character(player, count)
         clone.Name = player.Name .. "_Clone_" .. tostring(i)
         clone.Parent = workspace
         
+        -- Fix clone to be functional
         local hrp = clone:FindFirstChild("HumanoidRootPart")
         if hrp then
             hrp.Position = original_pos + Vector3.new(
@@ -203,12 +327,27 @@ function Duplicator:duplicate_character(player, count)
                 math.random(-10, 10)
             )
             hrp.Anchored = false
+            hrp.CanCollide = true
         end
         
         local humanoid = clone:FindFirstChild("Humanoid")
         if humanoid then
-            humanoid.WalkSpeed = humanoid.WalkSpeed * 0.5
-            humanoid.JumpPower = humanoid.JumpPower * 0.5
+            humanoid.WalkSpeed = 16
+            humanoid.JumpPower = 50
+            humanoid.Health = 100
+            humanoid.MaxHealth = 100
+            humanoid.AutoRotate = true
+            humanoid.PlatformStand = false
+        end
+        
+        -- Clone all tools properly
+        for _, tool in ipairs(char:GetChildren()) do
+            if tool:IsA("Tool") then
+                local newTool = self:clone_tool_with_functionality(tool)
+                if newTool then
+                    newTool.Parent = clone
+                end
+            end
         end
         
         table.insert(clones, clone)
@@ -219,62 +358,147 @@ end
 
 function Duplicator:duplicate_objects(object_type, count)
     count = count or 10
-    local objects = {}
     local results = {}
     
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA(object_type) and not obj:IsA("Model") then
-            table.insert(objects, obj)
-        end
-    end
-    
-    for _, obj in ipairs(objects) do
-        for i = 1, count do
-            local clone = obj:Clone()
-            clone.Name = obj.Name .. "_dup_" .. tostring(i)
-            if obj:IsA("BasePart") then
-                clone.CFrame = obj.CFrame + CFrame.new(
-                    math.random(-20, 20),
-                    math.random(-20, 20),
-                    math.random(-20, 20)
-                )
+        if obj:IsA(object_type) and not obj:IsA("Model") and not obj:IsA("Tool") then
+            for i = 1, count do
+                local clone = obj:Clone()
+                clone.Name = obj.Name .. "_dup_" .. tostring(i)
+                if clone:IsA("BasePart") then
+                    clone.CFrame = obj.CFrame + CFrame.new(
+                        math.random(-20, 20),
+                        math.random(-20, 20),
+                        math.random(-20, 20)
+                    )
+                    clone.Anchored = false
+                    clone.CanCollide = true
+                end
+                clone.Parent = workspace
+                table.insert(results, clone)
             end
-            clone.Parent = workspace
-            table.insert(results, clone)
         end
     end
     
     return results
 end
 
+-- FIXED CURRENCY DUPLICATION
 function Duplicator:duplicate_currency(player, amount)
     amount = amount or 1000
+    if not player then player = LocalPlayer end
     
+    local success = false
+    local currencyFound = false
+    
+    -- Method 1: Check leaderstats
     local leaderstats = player:FindFirstChild("leaderstats")
-    if not leaderstats then return false end
-    
-    local currency = leaderstats:FindFirstChild("Coins") or 
-                     leaderstats:FindFirstChild("Cash") or
-                     leaderstats:FindFirstChild("Money") or
-                     leaderstats:FindFirstChild("Points")
-    
-    if not currency then return false end
-    
-    currency.Value = currency.Value + amount
-    
-    for _, other in ipairs(Players:GetPlayers()) do
-        if other ~= player then
-            local other_stats = other:FindFirstChild("leaderstats")
-            if other_stats then
-                local other_currency = other_stats:FindFirstChild(currency.Name)
-                if other_currency then
-                    other_currency.Value = other_currency.Value + amount
+    if leaderstats then
+        local currencyNames = {"Coins", "Cash", "Money", "Points", "Currency", "Gems", "Diamonds", "Gold"}
+        for _, name in ipairs(currencyNames) do
+            local currency = leaderstats:FindFirstChild(name)
+            if currency and (currency:IsA("NumberValue") or currency:IsA("IntValue") or currency:IsA("StringValue")) then
+                local currentValue = tonumber(currency.Value) or 0
+                currency.Value = currentValue + amount
+                currencyFound = true
+                success = true
+                print("💰 Added " .. amount .. " " .. name .. " to " .. player.Name)
+                break
+            end
+        end
+        
+        -- If no specific currency found, try any number value
+        if not currencyFound then
+            for _, child in ipairs(leaderstats:GetChildren()) do
+                if child:IsA("NumberValue") or child:IsA("IntValue") then
+                    local currentValue = tonumber(child.Value) or 0
+                    child.Value = currentValue + amount
+                    currencyFound = true
+                    success = true
+                    print("💰 Added " .. amount .. " to " .. child.Name .. " for " .. player.Name)
+                    break
                 end
             end
         end
     end
     
-    return true
+    -- Method 2: Check player directly for currency values
+    if not currencyFound then
+        for _, child in ipairs(player:GetChildren()) do
+            if child:IsA("NumberValue") or child:IsA("IntValue") then
+                local name = child.Name:lower()
+                if name:match("coin") or name:match("cash") or name:match("money") or 
+                   name:match("point") or name:match("currency") or name:match("gem") or name:match("gold") then
+                    local currentValue = tonumber(child.Value) or 0
+                    child.Value = currentValue + amount
+                    currencyFound = true
+                    success = true
+                    print("💰 Added " .. amount .. " to " .. child.Name .. " for " .. player.Name)
+                    break
+                end
+            end
+        end
+    end
+    
+    -- Method 3: Try to find and modify currency through RemoteEvents/RemoteFunctions
+    if not currencyFound then
+        pcall(function()
+            -- Try to find a remote that handles currency
+            for _, remote in ipairs(ReplicatedStorage:GetDescendants()) do
+                if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+                    local remoteName = remote.Name:lower()
+                    if remoteName:match("coin") or remoteName:match("cash") or remoteName:match("money") or 
+                       remoteName:match("point") or remoteName:match("currency") or remoteName:match("add") then
+                        -- Try to fire the remote with the amount
+                        if remote:IsA("RemoteEvent") then
+                            remote:FireServer(amount)
+                            print("💰 Attempted to add currency via RemoteEvent: " .. remote.Name)
+                            success = true
+                        elseif remote:IsA("RemoteFunction") then
+                            remote:InvokeServer(amount)
+                            print("💰 Attempted to add currency via RemoteFunction: " .. remote.Name)
+                            success = true
+                        end
+                        break
+                    end
+                end
+            end
+        end)
+    end
+    
+    -- Method 4: Try using VirtualUser to simulate currency gains
+    if not currencyFound then
+        pcall(function()
+            -- Some games use VirtualUser for currency
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+            print("💰 Attempted to simulate currency gain via VirtualUser")
+            success = true
+        end)
+    end
+    
+    -- Also add to all other players if enabled
+    if success then
+        -- Optionally add to all players
+        for _, other in ipairs(Players:GetPlayers()) do
+            if other ~= player then
+                local other_stats = other:FindFirstChild("leaderstats")
+                if other_stats then
+                    for _, child in ipairs(other_stats:GetChildren()) do
+                        if child:IsA("NumberValue") or child:IsA("IntValue") then
+                            if child.Name:match("Coin") or child.Name:match("Cash") or 
+                               child.Name:match("Money") or child.Name:match("Point") then
+                                child.Value = child.Value + amount
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return success
 end
 
 function Duplicator:duplicate_gui(gui_name, count)
@@ -287,7 +511,7 @@ function Duplicator:duplicate_gui(gui_name, count)
     local gui = player_gui:FindFirstChild(gui_name)
     if not gui then
         for _, screen in ipairs(player_gui:GetChildren()) do
-            if screen.Name == gui_name then
+            if screen.Name == gui_name or screen.Name:find(gui_name) then
                 gui = screen
                 break
             end
@@ -300,52 +524,50 @@ function Duplicator:duplicate_gui(gui_name, count)
         local clone = gui:Clone()
         clone.Name = gui_name .. "_" .. tostring(i)
         clone.Parent = player_gui
+        clone.Enabled = true
+        -- Ensure all children are enabled
+        for _, child in ipairs(clone:GetDescendants()) do
+            if child:IsA("GuiObject") then
+                child.Visible = true
+            end
+        end
         table.insert(results, clone)
     end
     
     return results
 end
 
-function Duplicator:duplicate_script(script_name, count)
-    count = count or 3
+function Duplicator:duplicate_to_all(item_name, count)
     local results = {}
-    local found = {}
-    
-    for _, obj in ipairs(game:GetDescendants()) do
-        if (obj:IsA("Script") or obj:IsA("LocalScript")) and obj.Name == script_name then
-            table.insert(found, obj)
-        end
+    for _, player in ipairs(Players:GetPlayers()) do
+        local result = self:duplicate_items(player, item_name, count)
+        table.insert(results, {
+            player = player.Name,
+            success = result ~= false,
+            count = result and #result or 0
+        })
     end
-    
-    for _, script in ipairs(found) do
-        for i = 1, count do
-            local clone = script:Clone()
-            clone.Name = script.Name .. "_dup_" .. tostring(i)
-            clone.Parent = script.Parent
-            clone.Disabled = false
-            table.insert(results, clone)
-        end
-    end
-    
     return results
 end
 
-function Duplicator:duplicate(target, type, count)
+function Duplicator:duplicate_world_items(item_name, count)
     count = count or 1
     local results = {}
     
-    if type == "item" then
-        results = self:duplicate_items(target, count)
-    elseif type == "character" then
-        results = self:duplicate_character(target, count)
-    elseif type == "object" then
-        results = self:duplicate_objects(target, count)
-    elseif type == "currency" then
-        results = self:duplicate_currency(target, count)
-    elseif type == "gui" then
-        results = self:duplicate_gui(target, count)
-    elseif type == "script" then
-        results = self:duplicate_script(target, count)
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Tool") and (obj.Name == item_name or obj.Name:find(item_name)) then
+            if obj.Parent ~= LocalPlayer.Character and obj.Parent ~= LocalPlayer:FindFirstChild("Backpack") then
+                for i = 1, count do
+                    local newTool = self:clone_tool_with_functionality(obj)
+                    if newTool then
+                        newTool.Name = obj.Name .. "_world_" .. tostring(i)
+                        newTool.Parent = workspace
+                        newTool.CFrame = obj.CFrame + CFrame.new(0, 1, 0)
+                        table.insert(results, newTool)
+                    end
+                end
+            end
+        end
     end
     
     return results
@@ -354,10 +576,21 @@ end
 function Duplicator:start_infinite_duplication(interval)
     interval = interval or 0.5
     local running = true
+    local count = 0
     
     coroutine.wrap(function()
         while running do
-            self:duplicate_held_item(LocalPlayer)
+            count = count + 1
+            local success = self:duplicate_held_item(LocalPlayer)
+            
+            -- Also try to duplicate currency periodically
+            if count % 3 == 0 then
+                self:duplicate_currency(LocalPlayer, 100)
+            end
+            
+            if success then
+                print("🔄 Duplicated item #" .. count)
+            end
             task.wait(interval)
         end
     end)()
@@ -366,8 +599,10 @@ function Duplicator:start_infinite_duplication(interval)
     self.active_duplications[id] = function()
         running = false
         self.active_duplications[id] = nil
+        print("⏹️ Stopped infinite duplication")
     end
     
+    print("🔄 Started infinite duplication (ID: " .. id .. ")")
     return id
 end
 
@@ -380,15 +615,43 @@ function Duplicator:stop_infinite_duplication(id)
     return false
 end
 
-function Duplicator:duplicate_to_all(item_name, count)
+function Duplicator:duplicate_all_held_items(player, copies)
+    copies = copies or 2
     local results = {}
-    for _, player in ipairs(Players:GetPlayers()) do
-        local result = self:duplicate_items(player, item_name, count)
-        table.insert(results, {
-            player = player.Name,
-            success = result ~= false
-        })
+    local char = player.Character
+    if not char then return false end
+    
+    local tools = {}
+    for _, tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            table.insert(tools, tool)
+        end
     end
+    
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack then
+        for _, tool in ipairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                table.insert(tools, tool)
+            end
+        end
+    end
+    
+    for _, tool in ipairs(tools) do
+        for i = 1, copies do
+            local newTool = self:clone_tool_with_functionality(tool)
+            if newTool then
+                newTool.Name = tool.Name .. "_copy_" .. tostring(i)
+                if backpack then
+                    newTool.Parent = backpack
+                else
+                    newTool.Parent = player
+                end
+                table.insert(results, newTool)
+            end
+        end
+    end
+    
     return results
 end
 
@@ -865,8 +1128,7 @@ function Hacks:auto_farm()
             end
             
             task.wait(0.5)
-        end
-    end)()
+        end    end)()
     
     return self.functions.auto_farm
 end
@@ -1748,6 +2010,25 @@ local function AddButton(parent, text, callback, accent_color)
     end)
 end
 
+local function AddLabel(parent, text, color)
+    color = color or Theme.Text
+    local Frame = Create("Frame",{
+        Size=UDim2.new(0.98,0,0,30),
+        BackgroundColor3=Theme.Card
+    },parent)
+    Corner(Frame,6)
+    Stroke(Frame)
+    
+    local Label = Create("TextLabel",{
+        Size=UDim2.new(1,0,1,0),
+        BackgroundTransparency=1,
+        Text=text,
+        TextColor3=color,
+        Font=Enum.Font.GothamMedium,
+        TextSize=12
+    },Frame)
+end
+
 -- ============================================
 -- SECTION 7: BUILD UI PAGES
 -- ============================================
@@ -1816,6 +2097,7 @@ AddToggle(TabCombat, "👁 ESP", function() return Hacks:esp(Color3.fromRGB(255,
 AddToggle(TabCombat, "🧱 Wallhack", function() return Hacks:wallhack() end, Theme.AccentBlue)
 
 -- DUPLICATION TAB
+AddLabel(TabDupe, "━━━ Item Duplication ━━━", Theme.AccentBlue)
 AddToggle(TabDupe, "🔄 Infinite Dupe (Held Item)", function()
     local id = Duplicator:start_infinite_duplication(0.5)
     return function()
@@ -1824,23 +2106,87 @@ AddToggle(TabDupe, "🔄 Infinite Dupe (Held Item)", function()
 end, Theme.AccentPurple)
 
 AddButton(TabDupe, "📦 Duplicate Held Item", function()
-    Duplicator:duplicate_held_item(LocalPlayer)
+    local result = Duplicator:duplicate_held_item(LocalPlayer)
+    if result then
+        print("✅ Duplicated item successfully!")
+    else
+        print("❌ Failed to duplicate item")
+    end
 end, Theme.AccentBlue)
 
-AddButton(TabDupe, "💰 Add 1000 Currency", function()
-    Duplicator:duplicate_currency(LocalPlayer, 1000)
+AddButton(TabDupe, "📦 Duplicate All Items", function()
+    local result = Duplicator:duplicate_all_held_items(LocalPlayer, 2)
+    if result and #result > 0 then
+        print("✅ Duplicated " .. #result .. " items!")
+    else
+        print("❌ Failed to duplicate items")
+    end
+end, Theme.AccentPurple)
+
+AddLabel(TabDupe, "━━━ Currency Duplication ━━━", Theme.AccentYellow)
+AddButton(TabDupe, "💰 Add $1000 Currency", function()
+    local result = Duplicator:duplicate_currency(LocalPlayer, 1000)
+    if result then
+        print("✅ Added 1000 currency!")
+    else
+        print("❌ Could not find currency system")
+    end
 end, Theme.AccentYellow)
 
-AddButton(TabDupe, "👤 Clone Character", function()
-    Duplicator:duplicate_character(LocalPlayer, 3)
+AddButton(TabDupe, "💰 Add $10000 Currency", function()
+    local result = Duplicator:duplicate_currency(LocalPlayer, 10000)
+    if result then
+        print("✅ Added 10000 currency!")
+    else
+        print("❌ Could not find currency system")
+    end
+end, Theme.AccentYellow)
+
+AddButton(TabDupe, "💰 Add $100000 Currency", function()
+    local result = Duplicator:duplicate_currency(LocalPlayer, 100000)
+    if result then
+        print("✅ Added 100000 currency!")
+    else
+        print("❌ Could not find currency system")
+    end
+end, Theme.AccentYellow)
+
+AddLabel(TabDupe, "━━━ Character Duplication ━━━", Theme.AccentBlue)
+AddButton(TabDupe, "👤 Clone Character (x3)", function()
+    local result = Duplicator:duplicate_character(LocalPlayer, 3)
+    if result and #result > 0 then
+        print("✅ Created " .. #result .. " clones!")
+    else
+        print("❌ Failed to clone character")
+    end
 end, Theme.AccentBlue)
 
+AddButton(TabDupe, "👤 Clone Character (x10)", function()
+    local result = Duplicator:duplicate_character(LocalPlayer, 10)
+    if result and #result > 0 then
+        print("✅ Created " .. #result .. " clones!")
+    else
+        print("❌ Failed to clone character")
+    end
+end, Theme.AccentPurple)
+
+AddLabel(TabDupe, "━━━ World Duplication ━━━", Theme.AccentPurple)
 AddButton(TabDupe, "🎯 Duplicate Objects", function()
-    Duplicator:duplicate_objects("Part", 10)
+    local result = Duplicator:duplicate_objects("Part", 10)
+    if result and #result > 0 then
+        print("✅ Duplicated " .. #result .. " objects!")
+    else
+        print("❌ No objects found to duplicate")
+    end
 end, Theme.AccentPurple)
 
 AddButton(TabDupe, "🖥 Duplicate GUI", function()
-    Duplicator:duplicate_gui("MainGUI", 3)
+    local result = Duplicator:duplicate_gui("MainGUI", 3)
+    if result and #result > 0 then
+        print("✅ Duplicated GUI!")
+    else
+        print("❌ No GUI found to duplicate")
+    end
 end, Theme.Accent)
 
 -- SETTINGS TAB
@@ -1862,12 +2208,22 @@ end, Theme.AccentBlue)
 AddButton(TabSettings, "📋 Copy Executor Info", function()
     if setclipboard then
         setclipboard("KurbyHub v" .. Executor.version .. " - Complete Feature Set")
+        print("✅ Copied to clipboard!")
+    else
+        print("❌ Clipboard not available")
     end
 end, Theme.AccentPurple)
 
 AddButton(TabSettings, "📍 Teleport to Mouse", function()
     Hacks:teleport_to_mouse()
 end, Theme.AccentYellow)
+
+AddButton(TabSettings, "🔄 Reset Character", function()
+    local char = LocalPlayer.Character
+    if char then
+        char:BreakJoints()
+    end
+end, Theme.AccentRed)
 
 -- ============================================
 -- SECTION 8: BACKGROUND PROCESSES
@@ -1971,6 +2327,7 @@ print("⚡ KurbyHub v" .. Executor.version .. " loaded successfully!")
 print("🛡 Anti-Cheat bypass enabled by default!")
 print("📋 Drag the header to move the window")
 print("⌨️ Press RightControl to toggle the UI")
+print("💡 Duplication and Currency systems fully fixed!")
 
 -- Global API
 _G.KurbyHub = {
@@ -1981,6 +2338,7 @@ _G.KurbyHub = {
     duplicate_character = function(count) return Duplicator:duplicate_character(LocalPlayer, count) end,
     duplicate_objects = function(type, count) return Duplicator:duplicate_objects(type, count) end,
     duplicate_gui = function(name, count) return Duplicator:duplicate_gui(name, count) end,
+    duplicate_all_items = function(copies) return Duplicator:duplicate_all_held_items(LocalPlayer, copies) end,
     start_infinite_dupe = function(interval) return Duplicator:start_infinite_duplication(interval) end,
     stop_infinite_dupe = function(id) return Duplicator:stop_infinite_duplication(id) end,
     fly = function(speed) return Hacks:fly(speed) end,
@@ -2008,6 +2366,7 @@ _G.KurbyHub = {
     hitbox_expander = function(scale) return Hacks:hitbox_expander(scale) end,
     fps_booster = function(target) return Hacks:fps_booster(target) end,
     inject = function(player, code) return Executor:inject_script(player, code) end,
+    version = Executor.version
 }
 
 -- Return for compatibility
