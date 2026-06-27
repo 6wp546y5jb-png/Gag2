@@ -1,6 +1,6 @@
 --[[
     ============================================
-    KURBY HUB - COMPLETE UI WITH ALL FEATURES (MODERNIZED)
+    Fishy's Collection- COMPLETE UI WITH ALL FEATURES (FIXED)
     ============================================
 ]]
 
@@ -102,12 +102,45 @@ function Executor:inject_script(player, script_content)
 end
 
 -- ============================================
--- SECTION 3: DUPLICATION SYSTEM
+-- SECTION 3: DUPLICATION SYSTEM (FIXED)
 -- ============================================
 
 local Duplicator = {
     active_duplications = {}
 }
+
+function Duplicator:duplicate_held_item(player)
+    local char = player.Character
+    if not char then return false end
+    
+    local held_item = char:FindFirstChild("Humanoid"):FindFirstChild("Tool")
+    if not held_item then
+        -- Check if any tool is in the character
+        for _, tool in ipairs(char:GetChildren()) do
+            if tool:IsA("Tool") then
+                held_item = tool
+                break
+            end
+        end
+    end
+    
+    if not held_item then return false end
+    
+    local inventory = player:FindFirstChild("Inventory") or player:FindFirstChild("Backpack")
+    if not inventory then return false end
+    
+    local duplicate = held_item:Clone()
+    duplicate.Name = held_item.Name .. "_dupe"
+    duplicate.Parent = inventory
+    
+    -- If it's a tool, equip it if possible
+    if duplicate:IsA("Tool") then
+        task.wait(0.1)
+        duplicate.Parent = char
+    end
+    
+    return true
+end
 
 function Duplicator:duplicate_items(player, item_name, count)
     count = count or 1
@@ -313,14 +346,13 @@ function Duplicator:duplicate(target, type, count)
     return results
 end
 
-function Duplicator:start_infinite_duplication(type, interval, count)
+function Duplicator:start_infinite_duplication(interval)
     interval = interval or 0.5
-    count = count or 1
     local running = true
     
     coroutine.wrap(function()
         while running do
-            self:duplicate_items(LocalPlayer, type, count)
+            self:duplicate_held_item(LocalPlayer)
             task.wait(interval)
         end
     end)()
@@ -356,14 +388,23 @@ function Duplicator:duplicate_to_all(item_name, count)
 end
 
 -- ============================================
--- SECTION 4: HACK FEATURES
+-- SECTION 4: HACK FEATURES (FIXED)
 -- ============================================
 
 local humanoid, hrp
+local originalWalkSpeed = 16
+local originalJumpPower = 50
+local originalAutoRotate = true
+
 local function setupCharacter(char)
     if not char then return end
     humanoid = char:WaitForChild("Humanoid")
     hrp = char:WaitForChild("HumanoidRootPart")
+    if humanoid then
+        originalWalkSpeed = humanoid.WalkSpeed
+        originalJumpPower = humanoid.JumpPower
+        originalAutoRotate = humanoid.AutoRotate
+    end
 end
 setupCharacter(LocalPlayer.Character)
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
@@ -395,10 +436,10 @@ local Hacks = {
     functions = {}
 }
 
--- Global States for Modern UI
+-- Global States
 _G.CurrentHitboxScale = 5.0
 _G.HitboxEnabled = false
-_G.DirectionalJump = true
+_G.DirectionalJump = false
 _G.AirMoveEnabled = false
 _G.AirMoveSpeed = 50
 
@@ -421,38 +462,49 @@ function Hacks:fly(speed)
     end
     
     self.active.fly = true
-    hrp.Anchored = true
-    
     local flying = true
+    local originalGravity = workspace.Gravity
+    workspace.Gravity = 0
+    hrp.Anchored = false
     
     self.functions.fly = function()
         flying = false
-        hrp.Anchored = false
+        workspace.Gravity = originalGravity
         self.active.fly = false
         self.functions.fly = nil
     end
     
     coroutine.wrap(function()
         while flying do
-            local move_dir = Vector3.new()
+            if humanoid then
+                humanoid.PlatformStand = true
+            end
             
-            if UIS:IsKeyDown(Enum.KeyCode.W) then
-                move_dir = move_dir + hrp.CFrame.LookVector
-            end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then
-                move_dir = move_dir - hrp.CFrame.LookVector
-            end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then
-                move_dir = move_dir - hrp.CFrame.RightVector
-            end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then
-                move_dir = move_dir + hrp.CFrame.RightVector
-            end
-            if UIS:IsKeyDown(Enum.KeyCode.Space) then
-                move_dir = move_dir + Vector3.new(0, 1, 0)
-            end
-            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
-                move_dir = move_dir - Vector3.new(0, 1, 0)
+            local move_dir = Vector3.new()
+            local camera = workspace.CurrentCamera
+            
+            if camera then
+                local lookVector = camera.CFrame.LookVector
+                local rightVector = camera.CFrame.RightVector
+                
+                if UIS:IsKeyDown(Enum.KeyCode.W) then
+                    move_dir = move_dir + Vector3.new(lookVector.X, 0, lookVector.Z)
+                end
+                if UIS:IsKeyDown(Enum.KeyCode.S) then
+                    move_dir = move_dir - Vector3.new(lookVector.X, 0, lookVector.Z)
+                end
+                if UIS:IsKeyDown(Enum.KeyCode.A) then
+                    move_dir = move_dir - Vector3.new(rightVector.X, 0, rightVector.Z)
+                end
+                if UIS:IsKeyDown(Enum.KeyCode.D) then
+                    move_dir = move_dir + Vector3.new(rightVector.X, 0, rightVector.Z)
+                end
+                if UIS:IsKeyDown(Enum.KeyCode.Space) then
+                    move_dir = move_dir + Vector3.new(0, 1, 0)
+                end
+                if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
+                    move_dir = move_dir - Vector3.new(0, 1, 0)
+                end
             end
             
             if move_dir.Magnitude > 0 then
@@ -463,6 +515,9 @@ function Hacks:fly(speed)
             end
             
             task.wait()
+        end
+        if humanoid then
+            humanoid.PlatformStand = false
         end
     end)()
     
@@ -543,7 +598,7 @@ function Hacks:esp(color)
     return self.functions.esp
 end
 
--- INFINITE JUMP
+-- INFINITE JUMP (FIXED)
 function Hacks:infinite_jump()
     local char = LocalPlayer.Character
     if not char then return false end
@@ -561,24 +616,22 @@ function Hacks:infinite_jump()
     end
     
     self.active.infinite_jump = true
-    local original_jump = humanoid.JumpPower
-    
-    humanoid.JumpPower = 100
     local jumping = true
     
     self.functions.infinite_jump = function()
         jumping = false
-        humanoid.JumpPower = original_jump
         self.active.infinite_jump = false
         self.functions.infinite_jump = nil
     end
     
     coroutine.wrap(function()
         while jumping do
-            if UIS:IsKeyDown(Enum.KeyCode.Space) then
+            if humanoid and UIS:IsKeyDown(Enum.KeyCode.Space) then
                 humanoid.Jump = true
+                task.wait(0.05)
+                humanoid.Jump = false
             end
-            task.wait()
+            task.wait(0.01)
         end
     end)()
     
@@ -997,7 +1050,7 @@ function Hacks:spin_bot(speed)
     return self.functions.spin_bot
 end
 
--- BUNNY HOP
+-- BUNNY HOP (FIXED)
 function Hacks:bunny_hop()
     if self.active.bunny_hop then
         self.active.bunny_hop = false
@@ -1024,7 +1077,7 @@ function Hacks:bunny_hop()
                 local humanoid = char:FindFirstChild("Humanoid")
                 if humanoid and UIS:IsKeyDown(Enum.KeyCode.Space) then
                     humanoid.Jump = true
-                    task.wait(0.05)
+                    task.wait(0.1)
                     humanoid.Jump = false
                 end
             end
@@ -1130,46 +1183,13 @@ function Hacks:directional_jump()
     end
     
     self.active.directional_jump = true
-    local running = true
+    _G.DirectionalJump = true
     
     self.functions.directional_jump = function()
-        running = false
+        _G.DirectionalJump = false
         self.active.directional_jump = false
         self.functions.directional_jump = nil
     end
-    
-    coroutine.wrap(function()
-        while running do
-            local char = LocalPlayer.Character
-            if char then
-                local humanoid = char:FindFirstChild("Humanoid")
-                local hrp = char:FindFirstChild("HumanoidRootPart")
-                if humanoid and hrp then
-                    local move_dir = Vector3.new()
-                    
-                    if UIS:IsKeyDown(Enum.KeyCode.W) then
-                        move_dir = move_dir + hrp.CFrame.LookVector
-                    end
-                    if UIS:IsKeyDown(Enum.KeyCode.S) then
-                        move_dir = move_dir - hrp.CFrame.LookVector
-                    end
-                    if UIS:IsKeyDown(Enum.KeyCode.A) then
-                        move_dir = move_dir - hrp.CFrame.RightVector
-                    end
-                    if UIS:IsKeyDown(Enum.KeyCode.D) then
-                        move_dir = move_dir + hrp.CFrame.RightVector
-                    end
-                    
-                    if UIS:IsKeyDown(Enum.KeyCode.Space) and move_dir.Magnitude > 0 then
-                        move_dir = move_dir.Unit * 50
-                        hrp.Velocity = Vector3.new(move_dir.X, 40, move_dir.Z)
-                        humanoid.Jump = true
-                    end
-                end
-            end
-            task.wait(0.01)
-        end
-    end)()
     
     return self.functions.directional_jump
 end
@@ -1186,49 +1206,18 @@ function Hacks:air_move()
     end
     
     self.active.air_move = true
-    local running = true
+    _G.AirMoveEnabled = true
     
     self.functions.air_move = function()
-        running = false
+        _G.AirMoveEnabled = false
         self.active.air_move = false
         self.functions.air_move = nil
     end
     
-    coroutine.wrap(function()
-        while running do
-            local char = LocalPlayer.Character
-            if char then
-                local humanoid = char:FindFirstChild("Humanoid")
-                local hrp = char:FindFirstChild("HumanoidRootPart")
-                if humanoid and hrp and humanoid:GetState() == Enum.HumanoidStateType.Jumping then
-                    local move_dir = Vector3.new()
-                    
-                    if UIS:IsKeyDown(Enum.KeyCode.W) then
-                        move_dir = move_dir + hrp.CFrame.LookVector
-                    end
-                    if UIS:IsKeyDown(Enum.KeyCode.S) then
-                        move_dir = move_dir - hrp.CFrame.LookVector
-                    end
-                    if UIS:IsKeyDown(Enum.KeyCode.A) then
-                        move_dir = move_dir - hrp.CFrame.RightVector
-                    end
-                    if UIS:IsKeyDown(Enum.KeyCode.D) then
-                        move_dir = move_dir + hrp.CFrame.RightVector
-                    end
-                    
-                    if move_dir.Magnitude > 0 then
-                        hrp.Velocity = Vector3.new(move_dir.Unit.X * 30, hrp.Velocity.Y, move_dir.Unit.Z * 30)
-                    end
-                end
-            end
-            task.wait(0.01)
-        end
-    end)()
-    
     return self.functions.air_move
 end
 
--- ANTI FALL
+-- ANTI FALL (FIXED)
 function Hacks:anti_fall()
     if self.active.anti_fall then
         self.active.anti_fall = false
@@ -1255,16 +1244,17 @@ function Hacks:anti_fall()
                 local hrp = char:FindFirstChild("HumanoidRootPart")
                 if hrp and hrp.Position.Y < -50 then
                     hrp.CFrame = CFrame.new(0, 100, 0)
+                    hrp.Velocity = Vector3.new(0, 0, 0)
                 end
             end
-            task.wait(0.1)
+            task.wait(0.5)
         end
     end)()
     
     return self.functions.anti_fall
 end
 
--- HITBOX EXPANDER
+-- HITBOX EXPANDER (FIXED)
 function Hacks:hitbox_expander(scale)
     scale = scale or 5.0
     
@@ -1274,6 +1264,7 @@ function Hacks:hitbox_expander(scale)
             self.functions.hitbox_expander()
             self.functions.hitbox_expander = nil
         end
+        _G.HitboxEnabled = false
         return false
     end
     
@@ -1321,7 +1312,7 @@ function Hacks:fps_booster(target_fps)
 end
 
 -- ============================================
--- SECTION 5: DETECTION EVASION (Enabled by Default)
+-- SECTION 5: DETECTION EVASION
 -- ============================================
 
 local AntiDetection = {
@@ -1332,7 +1323,6 @@ function AntiDetection:initialize()
     coroutine.wrap(function()
         while self.active do
             pcall(function()
-                -- Disable anti-cheat scripts
                 for _, obj in ipairs(game:GetDescendants()) do
                     if obj:IsA("Script") or obj:IsA("LocalScript") then
                         local name = obj.Name:lower()
@@ -1368,11 +1358,10 @@ local ScreenGui = Create("ScreenGui",{
     ZIndexBehavior=Enum.ZIndexBehavior.Sibling
 },LocalPlayer.PlayerGui)
 
--- Main Frame
 local Main = Create("Frame",{
     AnchorPoint=Vector2.new(.5,.5),
     Position=UDim2.fromScale(.5,.5),
-    Size=UDim2.fromOffset(520,380),
+    Size=UDim2.fromOffset(520,420),
     BackgroundColor3=Theme.Background,
     BorderSizePixel=0,
     Visible=true,
@@ -1383,7 +1372,7 @@ local Main = Create("Frame",{
 Corner(Main,12)
 Stroke(Main)
 
--- Smooth Dragging System
+-- Dragging System
 local dragging, dragInput, dragStart, startPos
 local function update(input)
     local delta = input.Position - dragStart
@@ -1414,16 +1403,12 @@ end)
 
 -- Sidebar
 local Sidebar = Create("Frame",{
-    Size=UDim2.fromOffset(65,380),
+    Size=UDim2.fromOffset(65,420),
     BackgroundColor3=Theme.Sidebar,
     BorderSizePixel=0
 },Main)
 Corner(Sidebar,12)
-
-local SidebarStroke = Create("UIStroke",{
-    Thickness=1,
-    Color=Theme.Border
-},Sidebar)
+Stroke(Sidebar)
 
 -- Logo
 local Logo = Create("TextLabel",{
@@ -1708,7 +1693,7 @@ local function AddButton(parent, text, callback, accent_color)
     Stroke(Frame)
     
     local Label = Create("TextLabel",{
-        Size=UDim2.new(0.6,0,1,0),
+        Size=UDim2.new(0.5,0,1,0),
         Position=UDim2.new(0,12,0,0),
         BackgroundTransparency=1,
         Text=text,
@@ -1746,70 +1731,44 @@ local function AddButton(parent, text, callback, accent_color)
     end)
 end
 
-local function AddTextbox(parent, text, placeholder, callback)
-    local Frame = Create("Frame",{
-        Size=UDim2.new(0.98,0,0,42),
-        BackgroundColor3=Theme.Card
-    },parent)
-    Corner(Frame,6)
-    Stroke(Frame)
-    
-    local Label = Create("TextLabel",{
-        Size=UDim2.new(0.35,0,1,0),
-        Position=UDim2.new(0,12,0,0),
-        BackgroundTransparency=1,
-        Text=text,
-        TextColor3=Theme.Text,
-        Font=Enum.Font.GothamMedium,
-        TextSize=12,
-        TextXAlignment=Enum.TextXAlignment.Left
-    },Frame)
-    
-    local Box = Create("TextBox",{
-        Size=UDim2.new(0.5,0,0,28),
-        Position=UDim2.new(0.45,0,0.5,-14),
-        BackgroundColor3=Color3.fromRGB(35,35,40),
-        Text="",
-        PlaceholderText=placeholder or "",
-        ClearTextOnFocus=false,
-        TextColor3=Theme.Text,
-        PlaceholderColor3=Color3.fromRGB(120,120,120),
-        Font=Enum.Font.Gotham,
-        TextSize=12,
-        BorderSizePixel=0
-    },Frame)
-    Corner(Box,6)
-    
-    Box.FocusLost:Connect(function(enter_pressed)
-        if enter_pressed and callback then
-            callback(Box.Text)
-        end
-    end)
-    
-    return Box
-end
-
 -- ============================================
 -- SECTION 7: BUILD UI PAGES
 -- ============================================
 
 -- MOVEMENT TAB
 AddToggle(TabMovement, "✈ Fly", function() return Hacks:fly(50) end, Theme.AccentBlue)
-AddToggle(TabMovement, "⚡ Speed (2x)", function() return Hacks:speed(2) end, Theme.AccentYellow)
+AddToggle(TabMovement, "⚡ Speed", function() return Hacks:speed(2) end, Theme.AccentYellow)
+AddSlider(TabMovement, "Speed Multiplier", 1, 10, 2, function(v) 
+    if Hacks.active.speed then
+        Hacks:speedsets the speed multiplier
+    end
+end)
 AddToggle(TabMovement, "🔄 Infinite Jump", function() return Hacks:infinite_jump() end, Theme.AccentPurple)
 AddToggle(TabMovement, "🚫 No Clip", function() return Hacks:no_clip() end, Theme.AccentYellow)
 AddToggle(TabMovement, "🐰 Bunny Hop", function() return Hacks:bunny_hop() end, Theme.AccentBlue)
 AddToggle(TabMovement, "🌊 Air Movement", function() return Hacks:air_move() end, Theme.AccentBlue)
 AddToggle(TabMovement, "🔄 Directional Jump", function() return Hacks:directional_jump() end, Theme.AccentPurple)
 AddToggle(TabMovement, "🛑 Anti-Fall", function() return Hacks:anti_fall() end, Theme.Accent)
-AddSlider(TabMovement, "Hitbox Scale Extender", 1, 25, 5, function(v) _G.CurrentHitboxScale = v end)
-AddToggle(TabMovement, "🎯 Hitbox Expander", function() return Hacks:hitbox_expander(_G.CurrentHitboxScale) end, Theme.Accent)
+AddToggle(TabMovement, "🎯 Hitbox Expander", function() 
+    return Hacks:hitbox_expander(_G.CurrentHitboxScale) 
+end, Theme.Accent)
+AddSlider(TabMovement, "Hitbox Scale", 1, 25, 5, function(v) 
+    _G.CurrentHitboxScale = v
+    if Hacks.active.hitbox_expander then
+        Hacks:hitbox_expander(v)
+    end
+end)
 
 -- COMBAT TAB
 AddToggle(TabCombat, "🛡 God Mode", function() return Hacks:god_mode() end, Theme.Accent)
 AddToggle(TabCombat, "🎯 Aimbot", function() return Hacks:aimbot() end, Theme.AccentRed)
 AddToggle(TabCombat, "🔇 Silent Aim", function() return Hacks:silent_aim() end, Theme.AccentPurple)
 AddToggle(TabCombat, "💀 Kill Aura", function() return Hacks:kill_aura(20) end, Theme.AccentRed)
+AddSlider(TabCombat, "Kill Aura Radius", 5, 50, 20, function(v)
+    if Hacks.active.kill_aura then
+        Hacks:kill_aura(v)
+    end
+end)
 AddToggle(TabCombat, "🔄 Spin Bot", function() return Hacks:spin_bot(3) end, Theme.AccentYellow)
 AddToggle(TabCombat, "🖱 Auto Click", function() return Hacks:auto_click(0.1) end, Theme.Accent)
 AddToggle(TabCombat, "📏 Reach", function() return Hacks:reach(10) end, Theme.AccentPurple)
@@ -1818,20 +1777,16 @@ AddToggle(TabCombat, "👁 ESP", function() return Hacks:esp(Color3.fromRGB(255,
 AddToggle(TabCombat, "🧱 Wallhack", function() return Hacks:wallhack() end, Theme.AccentBlue)
 
 -- DUPLICATION TAB
-AddToggle(TabDupe, "🔄 Infinite Dupe", function()
-    local id = Duplicator:start_infinite_duplication("item", 1, 1)
+AddToggle(TabDupe, "🔄 Infinite Dupe (Held Item)", function()
+    local id = Duplicator:start_infinite_duplication(0.5)
     return function()
         Duplicator:stop_infinite_duplication(id)
     end
 end, Theme.AccentPurple)
 
-local dupe_item_box = AddTextbox(TabDupe, "📦 Duplicate Items", "Item name")
-AddButton(TabDupe, "Dupe!", function()
-    if dupe_item_box.Text ~= "" then
-        Duplicator:duplicate_items(LocalPlayer, dupe_item_box.Text, 5)
-        dupe_item_box.Text = ""
-    end
-end)
+AddButton(TabDupe, "📦 Duplicate Held Item", function()
+    Duplicator:duplicate_held_item(LocalPlayer)
+end, Theme.AccentBlue)
 
 AddButton(TabDupe, "💰 Add 1000 Currency", function()
     Duplicator:duplicate_currency(LocalPlayer, 1000)
@@ -1845,13 +1800,9 @@ AddButton(TabDupe, "🎯 Duplicate Objects", function()
     Duplicator:duplicate_objects("Part", 10)
 end, Theme.AccentPurple)
 
-local dupe_gui_box = AddTextbox(TabDupe, "🖥 Duplicate GUI", "GUI name")
-AddButton(TabDupe, "Dupe GUI", function()
-    if dupe_gui_box.Text ~= "" then
-        Duplicator:duplicate_gui(dupe_gui_box.Text, 3)
-        dupe_gui_box.Text = ""
-    end
-end)
+AddButton(TabDupe, "🖥 Duplicate GUI", function()
+    Duplicator:duplicate_gui("MainGUI", 3)
+end, Theme.Accent)
 
 -- SETTINGS TAB
 AddToggle(TabSettings, "🛡 Anti-Cheat Bypass", function()
@@ -1861,7 +1812,7 @@ AddToggle(TabSettings, "🛡 Anti-Cheat Bypass", function()
     end
 end, Theme.Accent)
 
-AddToggle(TabSettings, "🚀 FPS Booster (999 FPS)", function()
+AddToggle(TabSettings, "🚀 FPS Booster", function()
     return Hacks:fps_booster(999)
 end, Theme.AccentYellow)
 
@@ -1870,18 +1821,10 @@ AddButton(TabSettings, "🔄 Rejoin Game", function()
 end, Theme.AccentBlue)
 
 AddButton(TabSettings, "📋 Copy Executor Info", function()
-    setclipboard("Kurby Hub v" .. Executor.version .. " - Complete Feature Set")
+    setclipboard("Fishy  v" .. Executor.version .. " - Complete Feature Set")
 end, Theme.AccentPurple)
 
--- Teleport functions
-local tp_player_box = AddTextbox(TabSettings, "📍 Teleport to Player", "Player name")
-AddButton(TabSettings, "TP to Player", function()
-    if tp_player_box.Text ~= "" then
-        Hacks:teleport_to_player(tp_player_box.Text)
-    end
-end, Theme.AccentBlue)
-
-AddButton(TabSettings, "🖱 Teleport to Mouse", function()
+AddButton(TabSettings, "📍 Teleport to Mouse", function()
     Hacks:teleport_to_mouse()
 end, Theme.AccentYellow)
 
@@ -1981,7 +1924,6 @@ end)
 -- SECTION 9: INITIALIZATION
 -- ============================================
 
--- Start anti-detection
 AntiDetection:initialize()
 
 print("⚡ KurbyHub v" .. Executor.version .. " loaded successfully!")
@@ -1991,13 +1933,13 @@ print("⌨️ Press RightControl to toggle the UI")
 
 return {
     execute = function(code) return Executor:execute(code) end,
-    duplicate = function(type, count) return Duplicator:duplicate(LocalPlayer, type, count) end,
+    duplicate_held = function() return Duplicator:duplicate_held_item(LocalPlayer) end,
     duplicate_items = function(name, count) return Duplicator:duplicate_items(LocalPlayer, name, count) end,
     duplicate_currency = function(amount) return Duplicator:duplicate_currency(LocalPlayer, amount) end,
     duplicate_character = function(count) return Duplicator:duplicate_character(LocalPlayer, count) end,
     duplicate_objects = function(type, count) return Duplicator:duplicate_objects(type, count) end,
     duplicate_gui = function(name, count) return Duplicator:duplicate_gui(name, count) end,
-    start_infinite_dupe = function(type, interval, count) return Duplicator:start_infinite_duplication(type, interval, count) end,
+    start_infinite_dupe = function(interval) return Duplicator:start_infinite_duplication(interval) end,
     stop_infinite_dupe = function(id) return Duplicator:stop_infinite_duplication(id) end,
     fly = function(speed) return Hacks:fly(speed) end,
     speed = function(mult) return Hacks:speed(mult) end,
