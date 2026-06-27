@@ -83,18 +83,15 @@ function Executor:inject_script(player, script_content)
         local container = Instance.new("LocalScript")
         container.Name = "Injected_" .. os.time()
         container.Source = script_content
-        container.Parent = player.Character or player
-        container.Disabled = false
         
-        for _, target in ipairs(Players:GetPlayers()) do
-            if target ~= player then
-                local copy = container:Clone()
-                copy.Parent = target.Character or target
-                copy.Disabled = false
-            end
+        if player.Character then
+            container.Parent = player.Character
+        else
+            container.Parent = player
         end
         
-        task.wait(0.1)
+        container.Disabled = false
+        task.wait(0.5)
         container:Destroy()
     end)
     
@@ -113,9 +110,12 @@ function Duplicator:duplicate_held_item(player)
     local char = player.Character
     if not char then return false end
     
-    local held_item = char:FindFirstChild("Humanoid"):FindFirstChild("Tool")
+    local held_item = nil
+    if char:FindFirstChild("Humanoid") then
+        held_item = char.Humanoid:FindFirstChild("Tool")
+    end
+    
     if not held_item then
-        -- Check if any tool is in the character
         for _, tool in ipairs(char:GetChildren()) do
             if tool:IsA("Tool") then
                 held_item = tool
@@ -133,10 +133,11 @@ function Duplicator:duplicate_held_item(player)
     duplicate.Name = held_item.Name .. "_dupe"
     duplicate.Parent = inventory
     
-    -- If it's a tool, equip it if possible
     if duplicate:IsA("Tool") then
         task.wait(0.1)
-        duplicate.Parent = char
+        if player.Character then
+            duplicate.Parent = player.Character
+        end
     end
     
     return true
@@ -185,7 +186,9 @@ function Duplicator:duplicate_character(player, count)
     local char = player.Character
     if not char then return false end
     
-    local original_pos = char.HumanoidRootPart.Position
+    local original_pos = char:FindFirstChild("HumanoidRootPart")
+    if not original_pos then return false end
+    original_pos = original_pos.Position
     
     for i = 1, count do
         local clone = char:Clone()
@@ -229,11 +232,13 @@ function Duplicator:duplicate_objects(object_type, count)
         for i = 1, count do
             local clone = obj:Clone()
             clone.Name = obj.Name .. "_dup_" .. tostring(i)
-            clone.CFrame = obj.CFrame + CFrame.new(
-                math.random(-20, 20),
-                math.random(-20, 20),
-                math.random(-20, 20)
-            )
+            if obj:IsA("BasePart") then
+                clone.CFrame = obj.CFrame + CFrame.new(
+                    math.random(-20, 20),
+                    math.random(-20, 20),
+                    math.random(-20, 20)
+                )
+            end
             clone.Parent = workspace
             table.insert(results, clone)
         end
@@ -395,17 +400,20 @@ local humanoid, hrp
 local originalWalkSpeed = 16
 local originalJumpPower = 50
 local originalAutoRotate = true
+local currentSpeedMultiplier = 1
 
 local function setupCharacter(char)
     if not char then return end
-    humanoid = char:WaitForChild("Humanoid")
-    hrp = char:WaitForChild("HumanoidRootPart")
+    task.wait(0.5)
+    humanoid = char:FindFirstChild("Humanoid")
+    hrp = char:FindFirstChild("HumanoidRootPart")
     if humanoid then
         originalWalkSpeed = humanoid.WalkSpeed
         originalJumpPower = humanoid.JumpPower
         originalAutoRotate = humanoid.AutoRotate
     end
 end
+
 setupCharacter(LocalPlayer.Character)
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
@@ -524,7 +532,7 @@ function Hacks:fly(speed)
     return self.functions.fly
 end
 
--- SPEED HACK
+-- SPEED HACK (FIXED)
 function Hacks:speed(multiplier)
     multiplier = multiplier or 2
     local char = LocalPlayer.Character
@@ -534,24 +542,28 @@ function Hacks:speed(multiplier)
     if not humanoid then return false end
     
     if self.active.speed then
-        self.active.speed = false
-        if self.functions.speed then
-            self.functions.speed()
-            self.functions.speed = nil
+        -- Update the speed multiplier instead of toggling off
+        if humanoid then
+            local baseSpeed = 16 -- Default walkspeed
+            humanoid.WalkSpeed = baseSpeed * multiplier
+            currentSpeedMultiplier = multiplier
+            return self.functions.speed
         end
-        return false
     end
     
     self.active.speed = true
     local original = humanoid.WalkSpeed
     
     self.functions.speed = function()
-        humanoid.WalkSpeed = original
+        if humanoid then
+            humanoid.WalkSpeed = original
+        end
         self.active.speed = false
         self.functions.speed = nil
     end
     
     humanoid.WalkSpeed = original * multiplier
+    currentSpeedMultiplier = multiplier
     return self.functions.speed
 end
 
@@ -660,8 +672,10 @@ function Hacks:god_mode()
     local original_health = humanoid.Health
     
     self.functions.god_mode = function()
-        humanoid.MaxHealth = original_max
-        humanoid.Health = original_health
+        if humanoid then
+            humanoid.MaxHealth = original_max
+            humanoid.Health = original_health
+        end
         self.active.god_mode = false
         self.functions.god_mode = nil
     end
@@ -689,9 +703,11 @@ function Hacks:no_clip()
     self.active.no_clip = true
     
     self.functions.no_clip = function()
-        for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
             end
         end
         self.active.no_clip = false
@@ -998,7 +1014,6 @@ function Hacks:silent_aim()
                         local mouse = LocalPlayer:GetMouse()
                         if mouse then
                             local target_pos = closest.Position + Vector3.new(0, 2, 0)
-                            local look_at = CFrame.new(mouse.Origin.Position, target_pos)
                             mouse.TargetFilter = char
                         end
                     end
@@ -1025,7 +1040,6 @@ function Hacks:spin_bot(speed)
     
     self.active.spin_bot = true
     local running = true
-    local angle = 0
     
     self.functions.spin_bot = function()
         running = false
@@ -1039,7 +1053,6 @@ function Hacks:spin_bot(speed)
             if char then
                 local hrp = char:FindFirstChild("HumanoidRootPart")
                 if hrp then
-                    angle = angle + speed
                     hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(speed), 0)
                 end
             end
@@ -1333,7 +1346,11 @@ function AntiDetection:initialize()
                            name:match("detect") or
                            name:match("kick") or
                            name:match("admin") then
-                            obj.Disabled = true
+                            -- Only disable if it's not a critical game script
+                            if not obj:IsDescendantOf(workspace) and 
+                               not obj:IsDescendantOf(ReplicatedStorage) then
+                                obj.Disabled = true
+                            end
                         end
                     end
                 end
@@ -1738,24 +1755,41 @@ end
 -- MOVEMENT TAB
 AddToggle(TabMovement, "✈ Fly", function() return Hacks:fly(50) end, Theme.AccentBlue)
 AddToggle(TabMovement, "⚡ Speed", function() return Hacks:speed(2) end, Theme.AccentYellow)
+
+-- Fixed speed slider
 AddSlider(TabMovement, "Speed Multiplier", 1, 10, 2, function(v) 
     if Hacks.active.speed then
-        Hacks:speedsets the speed multiplier
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChild("Humanoid")
+            if hum then
+                hum.WalkSpeed = 16 * v  -- 16 is default walkspeed
+                currentSpeedMultiplier = v
+            end
+        end
     end
 end)
+
 AddToggle(TabMovement, "🔄 Infinite Jump", function() return Hacks:infinite_jump() end, Theme.AccentPurple)
 AddToggle(TabMovement, "🚫 No Clip", function() return Hacks:no_clip() end, Theme.AccentYellow)
 AddToggle(TabMovement, "🐰 Bunny Hop", function() return Hacks:bunny_hop() end, Theme.AccentBlue)
 AddToggle(TabMovement, "🌊 Air Movement", function() return Hacks:air_move() end, Theme.AccentBlue)
 AddToggle(TabMovement, "🔄 Directional Jump", function() return Hacks:directional_jump() end, Theme.AccentPurple)
 AddToggle(TabMovement, "🛑 Anti-Fall", function() return Hacks:anti_fall() end, Theme.Accent)
+
+-- Fixed hitbox expander toggle
 AddToggle(TabMovement, "🎯 Hitbox Expander", function() 
     return Hacks:hitbox_expander(_G.CurrentHitboxScale) 
 end, Theme.Accent)
+
+-- Fixed hitbox scale slider
 AddSlider(TabMovement, "Hitbox Scale", 1, 25, 5, function(v) 
     _G.CurrentHitboxScale = v
     if Hacks.active.hitbox_expander then
+        -- Re-apply hitbox with new scale
         Hacks:hitbox_expander(v)
+        Hacks.active.hitbox_expander = true
+        _G.HitboxEnabled = true
     end
 end)
 
@@ -1764,11 +1798,16 @@ AddToggle(TabCombat, "🛡 God Mode", function() return Hacks:god_mode() end, Th
 AddToggle(TabCombat, "🎯 Aimbot", function() return Hacks:aimbot() end, Theme.AccentRed)
 AddToggle(TabCombat, "🔇 Silent Aim", function() return Hacks:silent_aim() end, Theme.AccentPurple)
 AddToggle(TabCombat, "💀 Kill Aura", function() return Hacks:kill_aura(20) end, Theme.AccentRed)
+
+-- Fixed kill aura radius slider
 AddSlider(TabCombat, "Kill Aura Radius", 5, 50, 20, function(v)
     if Hacks.active.kill_aura then
+        -- Re-apply kill aura with new radius
         Hacks:kill_aura(v)
+        Hacks.active.kill_aura = true
     end
 end)
+
 AddToggle(TabCombat, "🔄 Spin Bot", function() return Hacks:spin_bot(3) end, Theme.AccentYellow)
 AddToggle(TabCombat, "🖱 Auto Click", function() return Hacks:auto_click(0.1) end, Theme.Accent)
 AddToggle(TabCombat, "📏 Reach", function() return Hacks:reach(10) end, Theme.AccentPurple)
@@ -1821,7 +1860,9 @@ AddButton(TabSettings, "🔄 Rejoin Game", function()
 end, Theme.AccentBlue)
 
 AddButton(TabSettings, "📋 Copy Executor Info", function()
-    setclipboard("Fishy  v" .. Executor.version .. " - Complete Feature Set")
+    if setclipboard then
+        setclipboard("KurbyHub v" .. Executor.version .. " - Complete Feature Set")
+    end
 end, Theme.AccentPurple)
 
 AddButton(TabSettings, "📍 Teleport to Mouse", function()
@@ -1841,57 +1882,57 @@ RunService.RenderStepped:Connect(function()
         frameCount, lastUpdate = 0, os.clock()
     end
     
-    -- Hitbox Expander
+    -- Hitbox Expander (Fixed)
     if _G.HitboxEnabled then
-        for _, model in ipairs(workspace:GetChildren()) do
-            if model:IsA("Model") and model.Name:match("^CLIENT_BALL_%d+$") then
-                local ball = model:FindFirstChild("Ball.001")
-                if not ball then
-                    local ref = nil
-                    for _, p in ipairs(model:GetDescendants()) do
-                        if p:IsA("BasePart") then
-                            ref = p
-                            break
+        pcall(function()
+            for _, model in ipairs(workspace:GetChildren()) do
+                if model:IsA("Model") and model.Name:match("^CLIENT_BALL_%d+$") then
+                    local ball = model:FindFirstChild("Ball.001")
+                    if not ball then
+                        for _, p in ipairs(model:GetDescendants()) do
+                            if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                                ball = Instance.new("Part", model)
+                                ball.Name = "Ball.001"
+                                ball.Shape = Enum.PartType.Ball
+                                ball.Size = Vector3.new(2, 2, 2) * _G.CurrentHitboxScale
+                                ball.CFrame = p.CFrame
+                                ball.Anchored = true
+                                ball.CanCollide = false
+                                ball.Transparency = 0.7
+                                ball.Material = Enum.Material.ForceField
+                                ball.Color = Color3.fromRGB(168, 85, 247)
+                                break
+                            end
                         end
-                    end
-                    if ref then
-                        ball = Instance.new("Part", model)
-                        ball.Name = "Ball.001"
-                        ball.Shape = Enum.PartType.Ball
+                    elseif ball then
                         ball.Size = Vector3.new(2, 2, 2) * _G.CurrentHitboxScale
-                        ball.CFrame = ref.CFrame
-                        ball.Anchored = true
-                        ball.CanCollide = false
-                        ball.Transparency = 0.7
-                        ball.Material = Enum.Material.ForceField
-                        ball.Color = Color3.fromRGB(168, 85, 247)
                     end
-                else
-                    ball.Size = Vector3.new(2, 2, 2) * _G.CurrentHitboxScale
                 end
             end
-        end
+        end)
     end
     
     -- Air Movement
     if _G.AirMoveEnabled and humanoid and hrp then
-        local state = humanoid:GetState()
-        if state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping then
-            local moveDir = humanoid.MoveDirection
-            if moveDir.Magnitude > 0 then
-                hrp.Velocity = Vector3.new(moveDir.X * _G.AirMoveSpeed, hrp.Velocity.Y, moveDir.Z * _G.AirMoveSpeed)
+        pcall(function()
+            local state = humanoid:GetState()
+            if state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping then
+                local moveDir = humanoid.MoveDirection
+                if moveDir.Magnitude > 0 then
+                    hrp.Velocity = Vector3.new(moveDir.X * _G.AirMoveSpeed, hrp.Velocity.Y, moveDir.Z * _G.AirMoveSpeed)
+                end
             end
-        end
+        end)
     end
 end)
 
--- Directional Jump
+-- Directional Jump (Fixed)
 UIS.JumpRequest:Connect(function()
     if _G.DirectionalJump and humanoid and hrp then
         task.defer(function()
             task.wait(0.03)
             local dir = Vector3.new(Camera.CFrame.LookVector.X, 0, Camera.CFrame.LookVector.Z)
-            if dir.Magnitude > 0 then
+            if dir.Magnitude > 0 and hrp then
                 hrp.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + dir.Unit)
                 humanoid.AutoRotate = false
             end
@@ -1931,7 +1972,8 @@ print("🛡 Anti-Cheat bypass enabled by default!")
 print("📋 Drag the header to move the window")
 print("⌨️ Press RightControl to toggle the UI")
 
-return {
+-- Global API
+_G.KurbyHub = {
     execute = function(code) return Executor:execute(code) end,
     duplicate_held = function() return Duplicator:duplicate_held_item(LocalPlayer) end,
     duplicate_items = function(name, count) return Duplicator:duplicate_items(LocalPlayer, name, count) end,
@@ -1967,3 +2009,6 @@ return {
     fps_booster = function(target) return Hacks:fps_booster(target) end,
     inject = function(player, code) return Executor:inject_script(player, code) end,
 }
+
+-- Return for compatibility
+return _G.KurbyHub
