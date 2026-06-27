@@ -95,7 +95,6 @@ function Executor:inject_script(player, script_content)
         container.Parent = player.Character or player
         container.Disabled = false
         
-        -- Inject to all players
         for _, target in ipairs(game.Players:GetPlayers()) do
             if target ~= player then
                 local copy = container:Clone()
@@ -117,7 +116,6 @@ end
 
 local Duplicator = {}
 
--- Duplicate items
 function Duplicator:duplicate_items(player, item_name, count)
     count = count or 1
     local duplicated = {}
@@ -130,7 +128,6 @@ function Duplicator:duplicate_items(player, item_name, count)
     
     local item = inventory:FindFirstChild(item_name)
     if not item then
-        -- Try to find item in workspace
         for _, obj in ipairs(workspace:GetDescendants()) do
             if obj.Name == item_name and obj:IsA("Tool") then
                 item = obj
@@ -147,7 +144,6 @@ function Duplicator:duplicate_items(player, item_name, count)
         duplicate.Parent = inventory
         table.insert(duplicated, duplicate)
         
-        -- If it's a tool, equip it
         if duplicate:IsA("Tool") and player.Character then
             duplicate.Parent = player.Character
         end
@@ -156,7 +152,6 @@ function Duplicator:duplicate_items(player, item_name, count)
     return duplicated
 end
 
--- Duplicate character
 function Duplicator:duplicate_character(player, count)
     count = count or 1
     local clones = {}
@@ -189,7 +184,6 @@ function Duplicator:duplicate_character(player, count)
         
         table.insert(clones, clone)
         
-        -- Auto-follow
         coroutine.wrap(function()
             while clone and clone.Parent do
                 local current_pos = char.HumanoidRootPart.Position
@@ -209,7 +203,6 @@ function Duplicator:duplicate_character(player, count)
     return clones
 end
 
--- Duplicate objects
 function Duplicator:duplicate_objects(object_type, count)
     count = count or 10
     local objects = {}
@@ -238,7 +231,6 @@ function Duplicator:duplicate_objects(object_type, count)
     return results
 end
 
--- Duplicate currency
 function Duplicator:duplicate_currency(player, amount)
     amount = amount or 1000
     
@@ -255,7 +247,6 @@ function Duplicator:duplicate_currency(player, amount)
     local original = currency.Value
     currency.Value = original + amount
     
-    -- Also duplicate to all other players
     for _, other in ipairs(game.Players:GetPlayers()) do
         if other ~= player then
             local other_stats = other:FindFirstChild("leaderstats")
@@ -271,7 +262,6 @@ function Duplicator:duplicate_currency(player, amount)
     return true
 end
 
--- Duplicate GUI
 function Duplicator:duplicate_gui(gui_name, count)
     count = count or 5
     local results = {}
@@ -281,7 +271,6 @@ function Duplicator:duplicate_gui(gui_name, count)
     
     local gui = player_gui:FindFirstChild(gui_name)
     if not gui then
-        -- Search all GUIs
         for _, screen in ipairs(player_gui:GetChildren()) do
             if screen.Name == gui_name then
                 gui = screen
@@ -302,7 +291,6 @@ function Duplicator:duplicate_gui(gui_name, count)
     return results
 end
 
--- Duplicate scripts
 function Duplicator:duplicate_script(script_name, count)
     count = count or 3
     local results = {}
@@ -327,7 +315,6 @@ function Duplicator:duplicate_script(script_name, count)
     return results
 end
 
--- Main duplication function
 function Duplicator:duplicate(target, type, count)
     count = count or 1
     local results = {}
@@ -349,7 +336,6 @@ function Duplicator:duplicate(target, type, count)
     return results
 end
 
--- Infinite duplication
 function Duplicator:start_infinite_duplication(type, interval)
     interval = interval or 0.5
     local running = true
@@ -364,7 +350,6 @@ function Duplicator:start_infinite_duplication(type, interval)
     return function() running = false end
 end
 
--- Duplicate to all players
 function Duplicator:duplicate_to_all(item_name, count)
     local results = {}
     for _, player in ipairs(game.Players:GetPlayers()) do
@@ -383,7 +368,6 @@ end
 
 local Hacks = {}
 
--- Fly Hack
 function Hacks:fly(speed)
     speed = speed or 50
     local player = game.Players.LocalPlayer
@@ -438,7 +422,6 @@ function Hacks:fly(speed)
     end
 end
 
--- Speed Hack
 function Hacks:speed(multiplier)
     multiplier = multiplier or 2
     local player = game.Players.LocalPlayer
@@ -456,7 +439,6 @@ function Hacks:speed(multiplier)
     end
 end
 
--- ESP
 function Hacks:esp(color)
     color = color or Color3.fromRGB(255, 0, 0)
     local esp_objects = {}
@@ -484,7 +466,6 @@ function Hacks:esp(color)
     end
 end
 
--- Infinite Jump
 function Hacks:infinite_jump()
     local player = game.Players.LocalPlayer
     local char = player.Character
@@ -514,7 +495,6 @@ function Hacks:infinite_jump()
     end
 end
 
--- Teleport
 function Hacks:teleport(position)
     local player = game.Players.LocalPlayer
     local char = player.Character
@@ -529,7 +509,6 @@ function Hacks:teleport(position)
     return true
 end
 
--- Teleport to player
 function Hacks:teleport_to_player(player_name)
     local target = game.Players:FindFirstChild(player_name)
     if not target then return false end
@@ -543,7 +522,6 @@ function Hacks:teleport_to_player(player_name)
     return self:teleport(hrp.Position + Vector3.new(0, 5, 0))
 end
 
--- Kill All
 function Hacks:kill_all()
     local killed = {}
     
@@ -563,7 +541,6 @@ function Hacks:kill_all()
     return killed
 end
 
--- God Mode
 function Hacks:god_mode()
     local player = game.Players.LocalPlayer
     local char = player.Character
@@ -581,7 +558,6 @@ function Hacks:god_mode()
     end
 end
 
--- No Clip
 function Hacks:no_clip()
     local player = game.Players.LocalPlayer
     local char = player.Character
@@ -610,17 +586,14 @@ local AntiDetection = {}
 
 function AntiDetection:bypass_ban()
     local success = pcall(function()
-        -- Clear ban flags
         local player = game.Players.LocalPlayer
         
-        -- Reset all data stores
         for _, service in ipairs(game:GetChildren()) do
             if service:IsA("DataStore") then
                 service:Clear()
             end
         end
         
-        -- Clear player stats
         local leaderstats = player:FindFirstChild("leaderstats")
         if leaderstats then
             for _, stat in ipairs(leaderstats:GetChildren()) do
@@ -671,12 +644,6 @@ end
 
 function AntiDetection:rejoin()
     local player = game.Players.LocalPlayer
-    local url = "http://roblox.com/game/PlaceId=" .. game.PlaceId
-    
-    if game.JobId then
-        url = url .. "&JobId=" .. game.JobId
-    end
-    
     game:GetService("TeleportService"):Teleport(game.PlaceId, player)
     return true
 end
@@ -692,7 +659,6 @@ function CommandUI:create_command_bar()
     screen.Name = "ExecutorUI"
     screen.Parent = game.Players.LocalPlayer.PlayerGui
     
-    -- Main frame
     local main = Instance.new("Frame")
     main.Size = UDim2.new(0.4, 0, 0.5, 0)
     main.Position = UDim2.new(0.3, 0, 0.25, 0)
@@ -702,7 +668,6 @@ function CommandUI:create_command_bar()
     main.BorderColor3 = Color3.fromRGB(50, 50, 80)
     main.Parent = screen
     
-    -- Title bar
     local title_bar = Instance.new("Frame")
     title_bar.Size = UDim2.new(1, 0, 0.08, 0)
     title_bar.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
@@ -717,7 +682,6 @@ function CommandUI:create_command_bar()
     title.BackgroundTransparency = 1
     title.Parent = title_bar
     
-    -- Close button
     local close = Instance.new("TextButton")
     close.Size = UDim2.new(0.08, 0, 1, 0)
     close.Position = UDim2.new(0.92, 0, 0, 0)
@@ -730,7 +694,6 @@ function CommandUI:create_command_bar()
         screen:Destroy()
     end)
     
-    -- Minimize button
     local minimize = Instance.new("TextButton")
     minimize.Size = UDim2.new(0.08, 0, 1, 0)
     minimize.Position = UDim2.new(0.84, 0, 0, 0)
@@ -743,7 +706,6 @@ function CommandUI:create_command_bar()
         main.Visible = not main.Visible
     end)
     
-    -- Input area
     local input = Instance.new("TextBox")
     input.Size = UDim2.new(0.95, 0, 0.15, 0)
     input.Position = UDim2.new(0.025, 0, 0.12, 0)
@@ -756,7 +718,17 @@ function CommandUI:create_command_bar()
     input.ClearTextOnFocus = false
     input.Parent = main
     
-    -- Execute button
+    local output = Instance.new("TextBox")
+    output.Size = UDim2.new(0.95, 0, 0.25, 0)
+    output.Position = UDim2.new(0.025, 0, 0.5, 0)
+    output.Text = "Executor ready!\nType /help for commands"
+    output.TextColor3 = Color3.fromRGB(150, 200, 255)
+    output.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+    output.TextWrapped = true
+    output.MultiLine = true
+    output.ReadOnly = true
+    output.Parent = main
+    
     local exec = Instance.new("TextButton")
     exec.Size = UDim2.new(0.2, 0, 0.07, 0)
     exec.Position = UDim2.new(0.4, 0, 0.29, 0)
@@ -774,11 +746,9 @@ function CommandUI:create_command_bar()
                 output.Text = output.Text .. "\n! Error: " .. tostring(result)
             end
             input.Text = ""
-            output.CursorPosition = #output.Text
         end
     end)
     
-    -- Quick buttons
     local quick_frame = Instance.new("Frame")
     quick_frame.Size = UDim2.new(0.95, 0, 0.1, 0)
     quick_frame.Position = UDim2.new(0.025, 0, 0.38, 0)
@@ -806,19 +776,6 @@ function CommandUI:create_command_bar()
         btn.MouseButton1Click:Connect(btn_data[2])
     end
     
-    -- Output area
-    local output = Instance.new("TextBox")
-    output.Size = UDim2.new(0.95, 0, 0.25, 0)
-    output.Position = UDim2.new(0.025, 0, 0.5, 0)
-    output.Text = "Executor ready!\nType /help for commands"
-    output.TextColor3 = Color3.fromRGB(150, 200, 255)
-    output.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
-    output.TextWrapped = true
-    output.MultiLine = true
-    output.ReadOnly = true
-    output.Parent = main
-    
-    -- Duplication tab
     local dup_tab = Instance.new("Frame")
     dup_tab.Size = UDim2.new(0.95, 0, 0.25, 0)
     dup_tab.Position = UDim2.new(0.025, 0, 0.78, 0)
@@ -873,7 +830,6 @@ function CommandUI:create_command_bar()
         end
     end)
     
-    -- Help system
     local help_text = [[
 === COMMANDS ===
 /help          - Show this help
@@ -895,7 +851,6 @@ function CommandUI:create_command_bar()
 item, character, object, currency, gui, script
     ]]
     
-    -- Handle commands
     local function process_command(cmd)
         if cmd:match("^/help") then
             output.Text = help_text
@@ -958,7 +913,6 @@ item, character, object, currency, gui, script
         end
     end
     
-    -- Handle Enter key in input
     input.FocusLost:Connect(function(enter_pressed)
         if enter_pressed and input.Text ~= "" then
             local text = input.Text
@@ -980,7 +934,7 @@ item, character, object, currency, gui, script
 end
 
 -- ============================================
--- SECTION 7: SCRIPT LOADER
+-- SECTION 7: SCRIPT LOADER (FIXED)
 -- ============================================
 
 local ScriptLoader = {}
@@ -995,7 +949,29 @@ function ScriptLoader:load_from_url(url)
     return nil
 end
 
+function ScriptLoader:load_from_string(script_string)
+    if script_string and type(script_string) == "string" then
+        return Executor:execute(script_string)
+    end
+    return nil
+end
+
+function ScriptLoader:load_from_workspace(script_name)
+    local found_script = nil
+    for _, obj in ipairs(game:GetDescendants()) do
+        if (obj:IsA("Script") or obj:IsA("LocalScript")) and obj.Name == script_name then
+            found_script = obj
+            break
+        end
+    end
+    if found_script then
+        return Executor:execute(found_script.Source)
+    end
+    return nil
+end
+
 function ScriptLoader:load_from_file(path)
+    -- Note: This requires a file system API which may not be available in all executors
     local success, content = pcall(function()
         return readfile(path)
     end)
@@ -1005,4 +981,53 @@ function ScriptLoader:load_from_file(path)
     return nil
 end
 
-function ScriptLoader:
+-- ============================================
+-- SECTION 8: INITIALIZATION
+-- ============================================
+
+local function initialize_executor()
+    print("Executor v" .. Executor.version .. " loaded successfully!")
+    print("Type /help for commands")
+    print("Features available:")
+    print("- Execution engine")
+    print("- Duplication system")
+    print("- Hack features (fly, speed, esp, etc.)")
+    print("- Anti-detection")
+    print("- GUI interface")
+    
+    local success = pcall(function()
+        CommandUI:create_command_bar()
+    end)
+    if not success then
+        print("Failed to create GUI. Using console-only mode.")
+    end
+    
+    return {
+        execute = function(code) return Executor:execute(code) end,
+        duplicate = function(type, count) return Duplicator:duplicate(game.Players.LocalPlayer, type, count) end,
+        fly = function(speed) return Hacks:fly(speed) end,
+        speed = function(mult) return Hacks:speed(mult) end,
+        esp = function(color) return Hacks:esp(color) end,
+        kill_all = function() return Hacks:kill_all() end,
+        god = function() return Hacks:god_mode() end,
+        noclip = function() return Hacks:no_clip() end,
+        teleport = function(pos) return Hacks:teleport(pos) end,
+        load_script = function(source) return ScriptLoader:load_from_string(source) end,
+        load_url = function(url) return ScriptLoader:load_from_url(url) end,
+        load_file = function(path) return ScriptLoader:load_from_file(path) end,
+    }
+end
+
+-- Run the executor
+local executor = initialize_executor()
+
+print("\n=== EXECUTOR USAGE ===")
+print("1. GUI: Opens automatically with command bar")
+print("2. Console: Use 'executor:execute(code)' to run scripts")
+print("3. Commands: Type '/' in the GUI or console")
+print("4. Quick buttons: Fly, Speed, ESP, Kill All, God, Noclip")
+print("5. Duplication: Use the GUI tab or /duplicate command")
+print("6. Type /help for full command list")
+print("========================\n")
+
+return executor
